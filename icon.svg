@@ -1,0 +1,21 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#12b48c"/>
+      <stop offset="1" stop-color="#0d8a6a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- rounded app background -->
+  <rect x="0" y="0" width="128" height="128" rx="28" fill="url(#bg)"/>
+
+  <!-- stacked prompt cards -->
+  <rect x="26" y="30" width="44" height="15" rx="6" fill="#ffffff" opacity="0.35"/>
+  <rect x="26" y="52" width="44" height="15" rx="6" fill="#ffffff" opacity="0.6"/>
+  <rect x="26" y="74" width="44" height="15" rx="6" fill="#ffffff"/>
+
+  <!-- send arrow -->
+  <path d="M78 59.5 L102 59.5 M92 49 L103 59.5 L92 70"
+        fill="none" stroke="#ffffff" stroke-width="9"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

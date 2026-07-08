@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="../panel.css">
+  <style>
+    /* Screenshot harness only — never shipped. */
+    html.dark  { background: #212121; }
+    html.light { background: #ffffff; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 28px;
+      box-sizing: border-box;
+    }
+    html.dark  body { background: radial-gradient(120% 120% at 70% 0%, #2a2a2a, #171717); }
+    html.light body { background: radial-gradient(120% 120% at 70% 0%, #ffffff, #ececec); }
+    #cps-panel { position: static !important; top: auto !important; right: auto !important; margin: 0 !important; }
+  </style>
+  <script>
+    // Configure from the query string, then stub the browser APIs.
+    const q = new URLSearchParams(location.search);
+    const theme = q.get("theme") || "dark";
+    document.documentElement.className = theme;
+
+    const sampleQueue = [
+      "Explain the German dative case with three example sentences.",
+      "Create an A1-level vocabulary list about {{topic}}.",
+      "Write a short dialogue using those words.",
+      "Now give me five practice exercises for {{topic}}."
+    ];
+    const sampleChains = [
+      { id: 1, name: "A1 Lesson Builder", prompts: sampleQueue },
+      { id: 2, name: "Blog post series", prompts: ["Outline a post about X", "Draft section 1", "Draft the conclusion"] }
+    ];
+
+    window.chrome = {
+      storage: { local: {
+        get: (keys, cb) => cb({
+          cps_queue: sampleQueue,
+          cps_chains: sampleChains,
+          cps_settings: { themeMode: "auto", autoContinue: true, delay: 3, repeat: 1 }
+        }),
+        set: () => {}
+      } }
+    };
+  </script>
+</head>
+<body>
+  <script src="../content.js"></script>
+  <script>
+    // Pose the panel "in action" for a livelier screenshot.
+    setTimeout(() => {
+      const q = new URLSearchParams(location.search);
+      if (q.get("tab") === "library") {
+        document.querySelector('.cps-tab[data-tab="library"]').click();
+      }
+      if (q.get("action")) {
+        const bar = document.querySelector("#cps-progress");
+        if (bar) bar.style.width = "40%";
+        const s = document.querySelector("#cps-status");
+        if (s) { s.textContent = "Sending 2 of 4…"; s.classList.add("cps-active"); }
+        const items = document.querySelectorAll(".cps-item");
+        if (items[1]) items[1].classList.add("cps-current");
+      }
+      if (q.get("open")) {
+        const d = document.querySelector(".cps-options");
+        if (d) d.open = true;
+      }
+    }, 60);
+  </script>
+</body>
+</html>
