@@ -37,15 +37,18 @@
       { id: 2, name: "Blog post series", prompts: ["Outline a post about X", "Draft section 1", "Draft the conclusion"] }
     ];
 
+    const sampleData = {
+      cps_queue: sampleQueue,
+      cps_chains: sampleChains,
+      cps_settings: { themeMode: "auto", autoContinue: true, delay: 3, repeat: 1 }
+    };
+    const area = {
+      get: (keys, cb) => cb(sampleData),
+      set: (obj, cb) => { cb && cb(); }
+    };
     window.chrome = {
-      storage: { local: {
-        get: (keys, cb) => cb({
-          cps_queue: sampleQueue,
-          cps_chains: sampleChains,
-          cps_settings: { themeMode: "auto", autoContinue: true, delay: 3, repeat: 1 }
-        }),
-        set: () => {}
-      } }
+      runtime: { getURL: (p) => "../" + p, lastError: null },
+      storage: { local: area, sync: area }
     };
   </script>
 </head>
@@ -69,6 +72,9 @@
       if (q.get("open")) {
         const d = document.querySelector(".cps-options");
         if (d) d.open = true;
+      }
+      if (q.get("collapsed")) {
+        document.querySelector("#cps-collapse").click();
       }
     }, 60);
   </script>

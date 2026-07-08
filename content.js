@@ -78,6 +78,10 @@
   let totalCount = 0;
   let currentQueueIndex = -1; // which visible queue row is sending
   let activeTab = "queue";
+  let lastReply = ""; // most recent ChatGPT answer, for {{last_reply}}
+
+  // Dynamic variables filled from ChatGPT at run time rather than by the user.
+  const RESERVED_VARS = ["last_reply", "last_response", "previous"];
 
   const settings = {
     delay: 0, // seconds between prompts
@@ -120,6 +124,17 @@
 
   function isGenerating() {
     return !!getStopButton();
+  }
+
+  // Read the text of ChatGPT's most recent assistant reply (for {{last_reply}}).
+  function getLastReplyText() {
+    const nodes = document.querySelectorAll(
+      '[data-message-author-role="assistant"]'
+    );
+    if (!nodes.length) return "";
+    const last = nodes[nodes.length - 1];
+    const md = last.querySelector(".markdown") || last;
+    return (md.innerText || "").trim();
   }
 
   function getContinueButton() {
@@ -284,14 +299,19 @@
     const prompts = queue.slice();
     if (!prompts.length) return;
 
-    // Resolve {{variables}} up front.
+    // Resolve user {{variables}} up front. Reserved dynamic vars (like
+    // {{last_reply}}) are excluded — they're filled from ChatGPT at send time.
     let values = {};
-    const vars = extractVars(prompts);
+    const vars = extractVars(prompts).filter(
+      (v) => !RESERVED_VARS.includes(v.toLowerCase())
+    );
     if (vars.length) {
       const filled = await askForVars(vars);
       if (!filled) return; // cancelled
       values = filled;
     }
+
+    lastReply = "";
 
     // Build the flat run list (queue repeated N times, vars substituted).
     const repeat = Math.max(1, settings.repeat | 0);
@@ -328,8 +348,13 @@
         if (cancel) break;
       }
 
+      // Substitute dynamic vars ({{last_reply}} etc.) with the latest answer.
+      const dyn = {};
+      RESERVED_VARS.forEach((n) => (dyn[n] = lastReply));
+      const outgoing = applyVars(runList[i].text, dyn);
+
       setStatus(`Sending ${i + 1} of ${runList.length}…`, true);
-      if (!setPromptText(runList[i].text)) {
+      if (!setPromptText(outgoing)) {
         setStatus("Couldn't find ChatGPT's input box.", false);
         break;
       }
@@ -337,9 +362,10 @@
       clickSend();
 
       await waitFor(() => isGenerating(), { timeout: 8000 });
-      const done = await waitForIdle();
+      await waitForIdle();
       if (cancel) break;
 
+      lastReply = getLastReplyText(); // capture for the next {{last_reply}}
       sentCount++;
       updateProgress();
 
@@ -382,7 +408,14 @@
 
   // ==========================================================================
   // Persistence
+  // The working queue lives in local storage; chains and settings go to sync
+  // storage so they roam across signed-in Chrome browsers (falling back to
+  // local if sync is unavailable or over quota).
   // ==========================================================================
+  function syncArea() {
+    return (chrome.storage && chrome.storage.sync) || chrome.storage.local;
+  }
+
   function persistQueue() {
     try {
       chrome.storage.local.set({ [KEY_QUEUE]: queue });
@@ -390,31 +423,77 @@
   }
   function persistChains() {
     try {
-      chrome.storage.local.set({ [KEY_CHAINS]: chains });
+      syncArea().set({ [KEY_CHAINS]: chains }, () => {
+        if (chrome.runtime && chrome.runtime.lastError) {
+          chrome.storage.local.set({ [KEY_CHAINS]: chains }); // quota fallback
+        }
+      });
     } catch (_) {}
   }
   function persistSettings() {
     try {
-      chrome.storage.local.set({ [KEY_SETTINGS]: settings });
+      syncArea().set({ [KEY_SETTINGS]: settings }, () => {
+        if (chrome.runtime && chrome.runtime.lastError) {
+          chrome.storage.local.set({ [KEY_SETTINGS]: settings });
+        }
+      });
     } catch (_) {}
   }
 
   function restore() {
-    try {
-      chrome.storage.local.get(
-        [KEY_QUEUE, KEY_CHAINS, KEY_SETTINGS],
-        (res) => {
-          if (res && Array.isArray(res[KEY_QUEUE])) queue = res[KEY_QUEUE];
-          if (res && Array.isArray(res[KEY_CHAINS])) chains = res[KEY_CHAINS];
-          if (res && res[KEY_SETTINGS]) Object.assign(settings, res[KEY_SETTINGS]);
-          syncSettingsInputs();
-          applyTheme();
-          renderAll();
-        }
-      );
-    } catch (_) {
+    const done = () => {
+      syncSettingsInputs();
+      applyTheme();
       renderAll();
+    };
+    try {
+      chrome.storage.local.get([KEY_QUEUE, KEY_CHAINS, KEY_SETTINGS], (loc) => {
+        if (loc && Array.isArray(loc[KEY_QUEUE])) queue = loc[KEY_QUEUE];
+        if (loc && Array.isArray(loc[KEY_CHAINS])) chains = loc[KEY_CHAINS];
+        if (loc && loc[KEY_SETTINGS]) Object.assign(settings, loc[KEY_SETTINGS]);
+        // Sync copy wins for chains/settings when present.
+        syncArea().get([KEY_CHAINS, KEY_SETTINGS], (syn) => {
+          if (syn && Array.isArray(syn[KEY_CHAINS])) chains = syn[KEY_CHAINS];
+          if (syn && syn[KEY_SETTINGS]) Object.assign(settings, syn[KEY_SETTINGS]);
+          done();
+        });
+      });
+    } catch (_) {
+      done();
     }
+  }
+
+  // Full backup / restore as a single JSON file.
+  function backupAll() {
+    const data = { app: "chatgpt-prompt-stacker", version: 1, queue, chains, settings };
+    downloadFile(
+      "prompt-stacker-backup.json",
+      JSON.stringify(data, null, 2),
+      "application/json"
+    );
+    setStatus("Backed up queue, chains, and settings.", false);
+  }
+
+  function restoreAll() {
+    pickFile(".json,application/json", (text) => {
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (_) {
+        setStatus("That file isn't valid backup JSON.", false);
+        return;
+      }
+      if (Array.isArray(data.queue)) queue = data.queue;
+      if (Array.isArray(data.chains)) chains = data.chains;
+      if (data.settings) Object.assign(settings, data.settings);
+      persistQueue();
+      persistChains();
+      persistSettings();
+      syncSettingsInputs();
+      applyTheme();
+      renderAll();
+      setStatus("Restored from backup.", false);
+    });
   }
 
   // ==========================================================================
@@ -489,13 +568,22 @@
   // ==========================================================================
   let panel, listEl, chainListEl, statusEl, progressBar;
 
+  function extUrl(path) {
+    try {
+      if (chrome.runtime && chrome.runtime.getURL) return chrome.runtime.getURL(path);
+    } catch (_) {}
+    return path;
+  }
+
   function buildPanel() {
+    const logoUrl = extUrl("icon48.png");
     panel = document.createElement("div");
     panel.id = "cps-panel";
     panel.innerHTML = `
       <div class="cps-header">
-        <span class="cps-logo"></span>
+        <img class="cps-logo" src="${logoUrl}" alt="" draggable="false" />
         <span class="cps-title">Prompt Stacker</span>
+        <span class="cps-count" id="cps-count" hidden></span>
         <div class="cps-header-btns">
           <button class="cps-icon-btn" id="cps-theme" title="Theme">◐</button>
           <button class="cps-icon-btn" id="cps-collapse" title="Collapse">–</button>
@@ -514,7 +602,9 @@
             placeholder="Type prompts here. Separate each with a blank line or --- on its own line."></textarea>
           <div class="cps-hint">
             Separate prompts with a blank line or <code>---</code>. Use
-            <code>{{name}}</code> for fill-in variables.
+            <code>{{name}}</code> for fill-in variables, or
+            <code>{{last_reply}}</code> to feed ChatGPT's previous answer into
+            the next prompt.
           </div>
           <div class="cps-row">
             <button class="cps-btn" id="cps-add">Add to queue</button>
@@ -565,6 +655,14 @@
         <!-- Library pane -->
         <div class="cps-pane" data-pane="library" hidden>
           <ul class="cps-list" id="cps-chains"></ul>
+          <div class="cps-footer">
+            <button class="cps-btn" id="cps-backup">Back up all</button>
+            <button class="cps-btn" id="cps-restore">Restore</button>
+          </div>
+          <div class="cps-hint">
+            Backs up your queue, chains, and settings to one JSON file. Chains
+            and settings also sync across your signed-in Chrome browsers.
+          </div>
         </div>
 
         <div class="cps-privacy">
@@ -594,19 +692,29 @@
     makeDraggable(panel, panel.querySelector(".cps-header"));
   }
 
+  function addToQueue() {
+    const input = panel.querySelector("#cps-input");
+    const parsed = parsePrompts(input.value);
+    if (parsed.length) {
+      queue.push(...parsed);
+      input.value = "";
+      persistQueue();
+      renderQueue();
+    }
+  }
+
   function wireEvents() {
     const $ = (id) => panel.querySelector(id);
     const input = $("#cps-input");
 
-    $("#cps-add").onclick = () => {
-      const parsed = parsePrompts(input.value);
-      if (parsed.length) {
-        queue.push(...parsed);
-        input.value = "";
-        persistQueue();
-        renderQueue();
+    $("#cps-add").onclick = addToQueue;
+    // ⌘/Ctrl+Enter in the box adds to the queue.
+    input.addEventListener("keydown", (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        e.preventDefault();
+        addToQueue();
       }
-    };
+    });
 
     $("#cps-start").onclick = start;
     $("#cps-pause").onclick = pauseOrResume;
@@ -621,13 +729,10 @@
     $("#cps-save").onclick = saveCurrentAsChain;
     $("#cps-export").onclick = exportQueue;
     $("#cps-import").onclick = importQueue;
+    $("#cps-backup").onclick = backupAll;
+    $("#cps-restore").onclick = restoreAll;
 
-    $("#cps-collapse").onclick = () => {
-      panel.classList.toggle("cps-collapsed");
-      $("#cps-collapse").textContent = panel.classList.contains("cps-collapsed")
-        ? "+"
-        : "–";
-    };
+    $("#cps-collapse").onclick = toggleCollapse;
     $("#cps-theme").onclick = cycleTheme;
 
     // Tabs
@@ -679,6 +784,22 @@
     if (name === "library") renderChains();
   }
 
+  function toggleCollapse() {
+    panel.classList.toggle("cps-collapsed");
+    const collapsed = panel.classList.contains("cps-collapsed");
+    panel.querySelector("#cps-collapse").textContent = collapsed ? "+" : "–";
+    updateCount();
+  }
+
+  // Small badge on the header/pill showing how many prompts are queued.
+  function updateCount() {
+    const el = panel && panel.querySelector("#cps-count");
+    if (!el) return;
+    const n = queue.length;
+    el.textContent = n;
+    el.hidden = n === 0;
+  }
+
   // ==========================================================================
   // Rendering
   // ==========================================================================
@@ -710,6 +831,7 @@
   function renderQueue() {
     if (!listEl) return;
     listEl.innerHTML = "";
+    updateCount();
 
     if (queue.length === 0) {
       const li = document.createElement("li");
@@ -898,37 +1020,45 @@
     setStatus(`Saved “${name}” to Library.`, false);
   }
 
-  function exportQueue() {
-    if (queue.length === 0) return;
-    const blob = new Blob([serializeQueue(queue)], { type: "text/plain" });
+  function downloadFile(name, text, mime) {
+    const blob = new Blob([text], { type: mime || "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "prompt-stack.txt";
+    a.download = name;
     a.click();
     URL.revokeObjectURL(url);
   }
 
-  function importQueue() {
+  function pickFile(accept, onText) {
     const inp = document.createElement("input");
     inp.type = "file";
-    inp.accept = ".txt,text/plain";
+    inp.accept = accept;
     inp.onchange = () => {
       const file = inp.files && inp.files[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = () => {
-        const parsed = parsePrompts(String(reader.result));
-        if (parsed.length) {
-          queue.push(...parsed);
-          persistQueue();
-          renderQueue();
-          setStatus(`Imported ${parsed.length} prompt(s).`, false);
-        }
-      };
+      reader.onload = () => onText(String(reader.result));
       reader.readAsText(file);
     };
     inp.click();
+  }
+
+  function exportQueue() {
+    if (queue.length === 0) return;
+    downloadFile("prompt-stack.txt", serializeQueue(queue), "text/plain");
+  }
+
+  function importQueue() {
+    pickFile(".txt,text/plain", (text) => {
+      const parsed = parsePrompts(text);
+      if (parsed.length) {
+        queue.push(...parsed);
+        persistQueue();
+        renderQueue();
+        setStatus(`Imported ${parsed.length} prompt(s).`, false);
+      }
+    });
   }
 
   // ==========================================================================
@@ -944,7 +1074,11 @@
     body.appendChild(overlay);
 
     return new Promise((resolve) => {
+      const onEsc = (e) => {
+        if (e.key === "Escape") close(null);
+      };
       const close = (result) => {
+        document.removeEventListener("keydown", onEsc, true);
         overlay.remove();
         resolve(result);
       };
@@ -952,6 +1086,7 @@
       overlay.addEventListener("mousedown", (e) => {
         if (e.target === overlay) close(null);
       });
+      document.addEventListener("keydown", onEsc, true);
     });
   }
 
@@ -1038,10 +1173,11 @@
   // Dragging the whole panel
   // ==========================================================================
   function makeDraggable(el, handle) {
-    let sx, sy, ox, oy, dragging = false;
+    let sx, sy, ox, oy, dragging = false, moved = false;
     handle.addEventListener("mousedown", (e) => {
-      if (e.target.classList.contains("cps-icon-btn")) return;
+      if (e.target.closest(".cps-icon-btn")) return;
       dragging = true;
+      moved = false;
       sx = e.clientX;
       sy = e.clientY;
       const r = el.getBoundingClientRect();
@@ -1051,21 +1187,48 @@
     });
     document.addEventListener("mousemove", (e) => {
       if (!dragging) return;
+      if (!moved && Math.abs(e.clientX - sx) + Math.abs(e.clientY - sy) > 4) {
+        moved = true;
+      }
+      if (!moved) return;
       el.style.left = ox + (e.clientX - sx) + "px";
       el.style.top = oy + (e.clientY - sy) + "px";
       el.style.right = "auto";
     });
-    document.addEventListener("mouseup", () => (dragging = false));
+    document.addEventListener("mouseup", (e) => {
+      // A click on the header (no real drag, not on a button) toggles collapse.
+      if (dragging && !moved && !e.target.closest(".cps-icon-btn")) {
+        toggleCollapse();
+      }
+      dragging = false;
+    });
   }
 
   // ==========================================================================
   // Init
   // ==========================================================================
+  // Global shortcuts. Ctrl/⌘+Shift+… is used to avoid clashing with ChatGPT.
+  function onKey(e) {
+    if (!(e.ctrlKey || e.metaKey) || !e.shiftKey) return;
+    const k = e.key.toLowerCase();
+    if (k === "s") {
+      e.preventDefault();
+      runState === "idle" ? start() : stop();
+    } else if (k === "p") {
+      e.preventDefault();
+      pauseOrResume();
+    } else if (k === "h") {
+      e.preventDefault();
+      toggleCollapse();
+    }
+  }
+
   function init() {
     if (document.getElementById("cps-panel")) return;
     buildPanel();
     applyTheme();
     watchPageTheme();
+    document.addEventListener("keydown", onKey);
     restore();
   }
 

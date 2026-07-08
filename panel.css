@@ -86,24 +86,10 @@
   width: 20px;
   height: 20px;
   border-radius: 6px;
-  background: linear-gradient(160deg, #19c37d, #0d8a63);
   flex: none;
-  position: relative;
+  object-fit: contain;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
-}
-.cps-logo::after {
-  content: "";
-  position: absolute;
-  left: 6px;
-  top: 8px;
-  width: 8px;
-  height: 4px;
-  border: 1.6px solid #fff;
-  border-top: none;
-  border-right: none;
-  border-radius: 0 0 0 2px;
-  transform: rotate(-45deg);
-  opacity: 0;
+  user-select: none;
 }
 
 .cps-title {
@@ -111,6 +97,23 @@
   font-size: 13.5px;
   flex: 1;
   letter-spacing: -0.015em;
+  white-space: nowrap;
+}
+
+.cps-count {
+  flex: none;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--cps-surface-2);
+  color: var(--cps-text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .cps-header-btns {
@@ -139,8 +142,20 @@
 }
 
 #cps-panel.cps-collapsed .cps-body,
-#cps-panel.cps-collapsed .cps-tabs {
+#cps-panel.cps-collapsed .cps-tabs,
+#cps-panel.cps-collapsed .cps-header-btns {
   display: none;
+}
+
+/* Collapsed → compact draggable pill (logo + title + count). */
+#cps-panel.cps-collapsed {
+  width: auto;
+}
+#cps-panel.cps-collapsed .cps-header {
+  padding: 10px 14px;
+}
+#cps-panel.cps-collapsed .cps-title {
+  flex: none;
 }
 
 /* --- Segmented tabs (Apple-style control) --------------------------------- */

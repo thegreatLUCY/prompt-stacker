@@ -23,6 +23,7 @@ It only does what you'd do by hand: type into the box and click **Send** when th
 ## Features
 
 - 🧱 **Prompt queue** — stack as many prompts as you like; the next one sends automatically when the current reply finishes.
+- 🔗 **Chain replies** — use `{{last_reply}}` to feed ChatGPT's previous answer straight into the next prompt (*“Now summarise the above”*).
 - 🎨 **Auto theme** — follows ChatGPT's light/dark mode automatically (or lock it to light/dark yourself).
 - ⏱️ **Delay between prompts** — add a breather so you can read each reply before the next fires.
 - ⏸️ **Pause / Resume / Stop** — full control mid-run; pause takes effect after the current reply.
@@ -32,14 +33,19 @@ It only does what you'd do by hand: type into the box and click **Send** when th
 - 🔁 **Repeat** — run the whole queue N times (great for generating variations).
 - ▶️ **Auto-continue** — clicks *“Continue generating”* when a reply gets truncated.
 - 🛑 **Limit-aware** — optionally auto-pauses if ChatGPT shows a usage-limit warning.
-- 💾 **Import / Export** — move your prompt stacks around as plain `.txt` files.
-- 📌 **Draggable panel** — lives on top of the page, collapse it when you don't need it.
+- 💾 **Backup & sync** — one-file JSON backup/restore; chains and settings sync across your signed-in Chrome browsers.
+- ⌨️ **Keyboard shortcuts** — start/stop, pause, and collapse without touching the mouse.
+- 📌 **Collapsible pill** — shrinks to a tidy draggable pill with a queue count; click it to expand.
 
 ## Screenshots
 
 | Queue (light) | Library |
 | :---: | :---: |
 | <img src="screenshots/queue-light.png" width="300" alt="Queue in light theme" /> | <img src="screenshots/library-dark.png" width="300" alt="Saved chains library" /> |
+
+Collapse it to a tidy pill with a live queue count — click the pill to expand again:
+
+<div align="center"><img src="screenshots/pill-dark.png" width="300" alt="Collapsed pill with queue count" /></div>
 
 ## Install (unpacked)
 
@@ -72,6 +78,17 @@ Write a short dialogue using those words.
 
 - A **blank line** (or `---`) separates prompts, so a single prompt can span multiple lines.
 - `{{topic}}` is a **variable** — you'll be asked to fill it in once when you press Start, and it's substituted everywhere.
+- `{{last_reply}}` is **dynamic** — it's replaced at send time with ChatGPT's most recent answer, so each prompt can build on the last one. (Aliases: `{{last_response}}`, `{{previous}}`.)
+
+### Keyboard shortcuts
+
+| Shortcut | Action |
+| --- | --- |
+| `⌘/Ctrl + Enter` (in the box) | Add prompts to the queue |
+| `⌘/Ctrl + Shift + S` | Start / Stop |
+| `⌘/Ctrl + Shift + P` | Pause / Resume |
+| `⌘/Ctrl + Shift + H` | Collapse / expand the panel |
+| `Esc` | Close a dialog |
 
 ### Options
 

@@ -1,6 +1,6 @@
 {
   "name": "chatgpt-prompt-stacker",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Chrome extension that queues prompts for ChatGPT and sends the next one when the current reply finishes.",
   "scripts": {
     "test": "node test/parse.test.cjs"
