@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Prompt Stacker — ChatGPT, Claude, Gemini & more",
   "version": "1.4.0",
-  "description": "Queue prompts and auto-send the next one when the AI finishes replying. Works on ChatGPT, Claude, Gemini, Google AI Mode, and DeepSeek.",
+  "description": "Queue prompts and auto-send the next when the AI finishes replying. Works on ChatGPT, Claude, Gemini, Google AI & DeepSeek.",
   "permissions": ["storage"],
   "icons": {
     "16": "icon16.png",
