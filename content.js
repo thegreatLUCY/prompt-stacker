@@ -200,6 +200,21 @@
 
   const SITE = detectSite();
 
+  // Per-platform brand accent — the panel tints its primary action, progress,
+  // focus rings and active tab to the detected model, and shows a matching
+  // "detected" dot. `dot` overrides the solid accent for a gradient bullet.
+  const BRANDS = {
+    ChatGPT: { accent: "#19c37d" },
+    Claude: { accent: "#d97757" },
+    Gemini: { accent: "#4b8bf5", dot: "linear-gradient(135deg,#4b8bf5,#9168f0)" },
+    "Google AI Mode": {
+      accent: "#4285f4",
+      dot: "conic-gradient(from 90deg,#4285f4,#ea4335,#fbbc05,#34a853,#4285f4)",
+    },
+    DeepSeek: { accent: "#4d6bfe" },
+  };
+  const BRAND = BRANDS[SITE.name] || { accent: "#19c37d" };
+
   // Return the first match for any selector in the list, skipping anything
   // inside our own panel (so the generic `textarea`/`button` fallbacks never
   // grab the Stacker's own controls).
@@ -669,6 +684,16 @@
     }
   }
 
+  // Tint the panel to the detected platform and fill in the "detected" chip.
+  function applyBrand() {
+    if (!panel) return;
+    panel.style.setProperty("--cps-accent", BRAND.accent);
+    const dot = panel.querySelector("#cps-dot");
+    const name = panel.querySelector("#cps-detect-name");
+    if (dot) dot.style.background = BRAND.dot || BRAND.accent;
+    if (name) name.textContent = SITE.name;
+  }
+
   function cycleTheme() {
     const order = ["auto", "dark", "light"];
     settings.themeMode = order[(order.indexOf(settings.themeMode) + 1) % 3];
@@ -712,7 +737,13 @@
     panel.innerHTML = `
       <div class="cps-header">
         <img class="cps-logo" src="${logoUrl}" alt="" draggable="false" />
-        <span class="cps-title">Prompt Stacker</span>
+        <div class="cps-titles">
+          <span class="cps-title">Prompt Stacker</span>
+          <span class="cps-detect" id="cps-detect">
+            <span class="cps-dot" id="cps-dot"></span>
+            <span id="cps-detect-name">Detecting…</span>
+          </span>
+        </div>
         <span class="cps-count" id="cps-count" hidden></span>
         <div class="cps-header-btns">
           <button class="cps-icon-btn" id="cps-theme" title="Theme">◐</button>
@@ -731,10 +762,9 @@
           <textarea class="cps-input" id="cps-input"
             placeholder="Type prompts here. Separate each with a blank line or --- on its own line."></textarea>
           <div class="cps-hint">
-            Separate prompts with a blank line or <code>---</code>. Use
-            <code>{{name}}</code> for fill-in variables, or
-            <code>{{last_reply}}</code> to feed ChatGPT's previous answer into
-            the next prompt.
+            <span class="cps-hint-row"><kbd class="cps-kbd">⏎⏎</kbd> Leave a blank line between prompts.</span>
+            <span class="cps-hint-row"><code>{{topic}}</code> Placeholders you fill in once at the start.</span>
+            <span class="cps-hint-row"><code>{{last_reply}}</code> Passes the previous answer into the next prompt.</span>
           </div>
           <div class="cps-row">
             <button class="cps-btn" id="cps-add">Add to queue</button>
@@ -804,7 +834,7 @@
           Everything stays on your device. Your prompts are never sent to us or anyone else.
         </div>
 
-        <a class="cps-star" href="https://github.com/thegreatLUCY/chatgpt-prompt-stacker"
+        <a class="cps-star" href="https://github.com/thegreatLUCY/prompt-stacker"
            target="_blank" rel="noopener noreferrer">
           <span class="cps-star-icon">★</span> Open source · Star on GitHub
           <span class="cps-star-arrow">↗</span>
@@ -1359,6 +1389,7 @@
     if (document.getElementById("cps-panel")) return;
     buildPanel();
     applyTheme();
+    applyBrand();
     watchPageTheme();
     document.addEventListener("keydown", onKey);
     restore();

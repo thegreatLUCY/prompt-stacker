@@ -36,6 +36,7 @@ Each platform's selectors live in a single `ADAPTERS` block in `content.js` — 
 
 - 🧱 **Prompt queue** — stack as many prompts as you like; the next one sends automatically when the current reply finishes.
 - 🌐 **Five platforms** — one extension for ChatGPT, Claude, Gemini, Google AI Mode, and DeepSeek.
+- 🎯 **Platform-aware** — detects which AI you're on and tints the whole panel to its brand colour (ChatGPT green, Claude clay, Gemini blue-violet, Google's multicolour, DeepSeek indigo), with a live "detected" badge.
 - 🔗 **Chain replies** — use `{{last_reply}}` to feed the AI's previous answer straight into the next prompt (*“Now summarise the above”*).
 - 🎨 **Auto theme** — follows the site's light/dark mode automatically (or lock it to light/dark yourself).
 - ⏱️ **Delay between prompts** — add a breather so you can read each reply before the next fires.

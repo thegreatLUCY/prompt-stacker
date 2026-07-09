@@ -1,25 +1,35 @@
 /* ===========================================================================
-   ChatGPT Prompt Stacker — panel styles
-   Premium minimalist, matched to ChatGPT: frosted translucency, hairline
-   borders, monochrome primary actions, one restrained accent for activity.
-   The content script toggles .cps-theme-dark / .cps-theme-light to follow
-   ChatGPT's own theme.
+   Prompt Stacker — panel styles
+   A refined "precision instrument": frosted translucency, hairline borders,
+   restrained typography. --cps-accent is set per detected platform by the
+   content script, tinting the primary action, progress, focus and detect dot.
+   .cps-theme-dark / .cps-theme-light follow the host site's own theme.
    =========================================================================== */
+
+@keyframes cps-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes cps-rise {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 
 #cps-panel {
   --cps-radius: 16px;
+  --cps-accent: #19c37d; /* overridden per platform */
   position: fixed;
   top: 84px;
   right: 20px;
-  width: 320px;
+  width: 322px;
   z-index: 2147483647;
   border-radius: var(--cps-radius);
   border: 0.5px solid var(--cps-border);
   background: var(--cps-bg);
   color: var(--cps-text);
   box-shadow: var(--cps-shadow);
-  -webkit-backdrop-filter: saturate(180%) blur(24px);
-  backdrop-filter: saturate(180%) blur(24px);
+  -webkit-backdrop-filter: saturate(180%) blur(26px);
+  backdrop-filter: saturate(180%) blur(26px);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
     Roboto, Helvetica, Arial, sans-serif;
   font-size: 13px;
@@ -29,6 +39,7 @@
   flex-direction: column;
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
+  animation: cps-in 0.34s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* --- Theme tokens --------------------------------------------------------- */
@@ -76,28 +87,53 @@
 .cps-header {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 13px 14px 11px;
+  gap: 10px;
+  padding: 12px 13px 11px;
   cursor: move;
   user-select: none;
 }
 
 .cps-logo {
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
   flex: none;
   object-fit: contain;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
   user-select: none;
 }
 
+.cps-titles {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.15;
+}
 .cps-title {
   font-weight: 600;
   font-size: 13.5px;
-  flex: 1;
   letter-spacing: -0.015em;
   white-space: nowrap;
+}
+.cps-detect {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--cps-text-dim);
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+.cps-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cps-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--cps-accent) 22%, transparent);
+  flex: none;
 }
 
 .cps-count {
@@ -141,9 +177,15 @@
   color: var(--cps-text);
 }
 
+/* The count badge is only shown on the collapsed pill. */
+#cps-panel:not(.cps-collapsed) .cps-count {
+  display: none;
+}
+
 #cps-panel.cps-collapsed .cps-body,
 #cps-panel.cps-collapsed .cps-tabs,
-#cps-panel.cps-collapsed .cps-header-btns {
+#cps-panel.cps-collapsed .cps-header-btns,
+#cps-panel.cps-collapsed .cps-detect {
   display: none;
 }
 
@@ -152,9 +194,9 @@
   width: auto;
 }
 #cps-panel.cps-collapsed .cps-header {
-  padding: 10px 14px;
+  padding: 9px 14px;
 }
-#cps-panel.cps-collapsed .cps-title {
+#cps-panel.cps-collapsed .cps-titles {
   flex: none;
 }
 
@@ -205,6 +247,16 @@
 .cps-pane[hidden] {
   display: none;
 }
+/* Gentle staggered reveal of a pane's sections when it becomes visible. */
+.cps-pane:not([hidden]) > * {
+  animation: cps-rise 0.42s both cubic-bezier(0.22, 1, 0.36, 1);
+}
+.cps-pane:not([hidden]) > *:nth-child(1) { animation-delay: 0.03s; }
+.cps-pane:not([hidden]) > *:nth-child(2) { animation-delay: 0.06s; }
+.cps-pane:not([hidden]) > *:nth-child(3) { animation-delay: 0.09s; }
+.cps-pane:not([hidden]) > *:nth-child(4) { animation-delay: 0.12s; }
+.cps-pane:not([hidden]) > *:nth-child(5) { animation-delay: 0.15s; }
+.cps-pane:not([hidden]) > *:nth-child(n + 6) { animation-delay: 0.18s; }
 
 textarea.cps-input,
 .cps-edit {
@@ -233,17 +285,37 @@ textarea.cps-input::placeholder {
 }
 
 .cps-hint {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: -2px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  background: var(--cps-surface);
+  border: 0.5px solid var(--cps-border-soft);
+}
+.cps-hint-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
   font-size: 11px;
   color: var(--cps-text-dim);
-  margin-top: -4px;
-  line-height: 1.5;
+  line-height: 1.4;
 }
-.cps-hint code {
+.cps-hint code,
+.cps-kbd {
+  flex: none;
   background: var(--cps-surface-2);
-  padding: 0.5px 4px;
-  border-radius: 4px;
+  color: var(--cps-text);
+  padding: 1px 5px;
+  border-radius: 5px;
   font-size: 10px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 500;
+}
+.cps-kbd {
+  font-family: inherit;
+  letter-spacing: 1px;
 }
 
 /* --- Buttons -------------------------------------------------------------- */
@@ -271,14 +343,18 @@ textarea.cps-input::placeholder {
   transform: scale(0.985);
 }
 .cps-btn.cps-primary {
-  background: var(--cps-primary);
+  background: var(--cps-accent);
   border-color: transparent;
-  color: var(--cps-primary-ink);
+  color: #fff;
   font-weight: 600;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--cps-accent) 40%, transparent),
+    0 4px 14px color-mix(in srgb, var(--cps-accent) 32%, transparent);
 }
 .cps-btn.cps-primary:hover:not(:disabled) {
-  opacity: 0.88;
-  background: var(--cps-primary);
+  filter: brightness(1.06);
+}
+.cps-btn.cps-primary:disabled {
+  box-shadow: none;
 }
 .cps-btn.cps-danger {
   color: var(--cps-danger);

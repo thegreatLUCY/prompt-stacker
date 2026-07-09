@@ -76,6 +76,16 @@
       if (q.get("collapsed")) {
         document.querySelector("#cps-collapse").click();
       }
+      // Simulate a detected platform (harness runs off-domain as ChatGPT).
+      if (q.get("accent")) {
+        document.querySelector("#cps-panel").style.setProperty("--cps-accent", q.get("accent"));
+      }
+      if (q.get("platform")) {
+        document.querySelector("#cps-detect-name").textContent = q.get("platform");
+      }
+      if (q.get("dot")) {
+        document.querySelector("#cps-dot").style.background = decodeURIComponent(q.get("dot"));
+      }
     }, 60);
   </script>
 </body>
