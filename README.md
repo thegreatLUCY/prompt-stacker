@@ -6,7 +6,7 @@
 
 **Queue up a stack of prompts and let them send themselves — each one fires the moment the AI finishes the previous reply.**
 
-Works on **ChatGPT · Claude · Gemini · Google AI Mode · DeepSeek**. No more babysitting the tab — line up your prompts, hit **Start**, walk away.
+Works on **ChatGPT · Claude · Gemini · DeepSeek**. No more babysitting the tab — line up your prompts, hit **Start**, walk away.
 
 <img src="screenshots/queue-dark.png" width="330" alt="Prompt Stacker — dark theme" />
 
@@ -27,7 +27,6 @@ It only does what you'd do by hand: type into the box and click **Send** when th
 | ChatGPT | chatgpt.com | ✅ Verified |
 | Claude | claude.ai | ✅ Verified |
 | Gemini | gemini.google.com | ✅ Verified |
-| Google AI Mode | google.com | ✅ Verified |
 | DeepSeek | chat.deepseek.com | 🧪 Best-effort (pending live verification) |
 
 Each platform's selectors live in a single `ADAPTERS` block in `content.js` — adding a new site or fixing a drifted selector is a one-place change.
@@ -35,8 +34,9 @@ Each platform's selectors live in a single `ADAPTERS` block in `content.js` — 
 ## Features
 
 - 🧱 **Prompt queue** — stack as many prompts as you like; the next one sends automatically when the current reply finishes.
-- 🌐 **Five platforms** — one extension for ChatGPT, Claude, Gemini, Google AI Mode, and DeepSeek.
-- 🎯 **Platform-aware** — detects which AI you're on and tints the whole panel to its brand colour (ChatGPT green, Claude clay, Gemini blue-violet, Google's multicolour, DeepSeek indigo), with a live "detected" badge.
+- ✅ **Confirmed sends** — verifies that each prompt was accepted, safely retries once, and pauses with Retry / Skip controls instead of silently advancing.
+- 🌐 **Four platforms** — one extension for ChatGPT, Claude, Gemini, and DeepSeek.
+- 🎯 **Platform-aware** — detects which AI you're on and tints the whole panel to its brand colour (ChatGPT green, Claude clay, Gemini blue-violet, DeepSeek indigo), with a live "detected" badge.
 - 🔗 **Chain replies** — use `{{last_reply}}` to feed the AI's previous answer straight into the next prompt (*“Now summarise the above”*).
 - 🎨 **Auto theme** — follows the site's light/dark mode automatically (or lock it to light/dark yourself).
 - ⏱️ **Delay between prompts** — add a breather so you can read each reply before the next fires.
@@ -49,7 +49,9 @@ Each platform's selectors live in a single `ADAPTERS` block in `content.js` — 
 - 🛑 **Limit-aware** — optionally auto-pauses if ChatGPT shows a usage-limit warning.
 - 💾 **Backup & sync** — one-file JSON backup/restore; chains and settings sync across your signed-in Chrome browsers.
 - ⌨️ **Keyboard shortcuts** — start/stop, pause, and collapse without touching the mouse.
-- 📌 **Collapsible pill** — shrinks to a tidy draggable pill with a queue count; click it to expand.
+- 📌 **Compact by default** — opens as a tidy draggable pill with a queue count and expands only when you click it.
+- 👋 **Friendly first run** — a short guide explains prompt stacks and can load an editable three-step example.
+- 📐 **Viewport-safe panel** — adapts to small windows, scrolls internally, and stays within the visible browser area while dragging.
 
 ## Screenshots
 
@@ -70,8 +72,6 @@ Not on the Chrome Web Store — load it as an unpacked extension:
 3. Turn on **Developer mode** (top-right).
 4. Click **Load unpacked** and select the project folder.
 5. Open any [supported platform](#supported-platforms) (e.g. [chatgpt.com](https://chatgpt.com)) — the **Prompt Stacker** panel appears top-right. Refresh if it doesn't.
-
-On Google, the panel only appears in **AI Mode** (when an AI conversation is active), not on ordinary searches.
 
 ## How to use
 
@@ -116,7 +116,7 @@ Write a short dialogue using those words.
 
 ## Privacy
 
-Prompt Stacker requests a single permission: **`storage`** (to remember your queue, chains, and settings locally). It runs only on ChatGPT pages, makes **zero network requests**, and sends **none of your data anywhere**. Everything stays in your browser.
+Prompt Stacker requests a single permission: **`storage`** (to remember your queue, chains, and settings locally). It runs only on supported AI chat pages, makes **zero network requests**, and sends **none of your data anywhere**. Everything stays in your browser.
 
 ## Development
 

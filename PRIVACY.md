@@ -15,7 +15,7 @@ next one to a supported AI chat page when its previous reply finishes.
 
 ## What is stored, and where
 
-Your prompt queue, saved prompt chains, and settings are stored **locally in your
+Your prompt queue, saved prompt chains, settings, and interface preferences are stored **locally in your
 own browser** using the `storage` permission (Chrome's `chrome.storage` API), so
 they persist between sessions. Chains and settings may sync across your own
 signed-in Chrome browsers via Chrome's built-in sync — this stays within your
@@ -27,8 +27,8 @@ not control or have access to.
 ## Permissions
 
 - **storage** — to save your queue, chains, and settings locally.
-- **Host access** to supported AI chat sites (ChatGPT, Claude, Gemini, Google AI
-  Mode, DeepSeek) — solely to place your prompt into that site's input box and
+- **Host access** to supported AI chat sites (ChatGPT, Claude, Gemini and
+  DeepSeek) — solely to place your prompt into that site's input box and
   click its send button. Page content is not read for any other purpose and is
   never transmitted.
 

@@ -19,9 +19,12 @@
   --cps-radius: 16px;
   --cps-accent: #19c37d; /* overridden per platform */
   position: fixed;
-  top: 84px;
-  right: 20px;
-  width: 322px;
+  top: clamp(12px, 10vh, 84px);
+  right: 12px;
+  width: min(322px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
   z-index: 2147483647;
   border-radius: var(--cps-radius);
   border: 0.5px solid var(--cps-border);
@@ -152,6 +155,14 @@
   justify-content: center;
 }
 
+.cps-expand-hint {
+  display: none;
+  color: var(--cps-text-dim);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
 .cps-header-btns {
   display: flex;
   gap: 2px;
@@ -199,6 +210,9 @@
 #cps-panel.cps-collapsed .cps-titles {
   flex: none;
 }
+#cps-panel.cps-collapsed .cps-expand-hint {
+  display: inline;
+}
 
 /* --- Segmented tabs (Apple-style control) --------------------------------- */
 .cps-tabs {
@@ -237,6 +251,9 @@
   flex-direction: column;
   gap: 11px;
   position: relative;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .cps-pane {
@@ -246,6 +263,47 @@
 }
 .cps-pane[hidden] {
   display: none;
+}
+
+/* --- First-use guide ------------------------------------------------------ */
+.cps-onboarding {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 11px;
+  border: 0.5px solid color-mix(in srgb, var(--cps-accent) 40%, var(--cps-border));
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--cps-accent) 8%, var(--cps-surface));
+}
+.cps-onboarding[hidden] {
+  display: none;
+}
+.cps-onboarding-title {
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--cps-text);
+}
+.cps-onboarding-copy {
+  color: var(--cps-text-dim);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+@media (max-width: 380px) {
+  #cps-panel {
+    right: 8px;
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+  }
+  #cps-panel.cps-collapsed {
+    width: auto;
+  }
+  .cps-body {
+    padding-inline: 10px;
+  }
+  .cps-tabs {
+    margin-inline: 10px;
+  }
 }
 /* Gentle staggered reveal of a pane's sections when it becomes visible. */
 .cps-pane:not([hidden]) > * {
@@ -486,6 +544,17 @@ textarea.cps-input::placeholder {
 }
 .cps-status.cps-active {
   color: var(--cps-accent);
+}
+.cps-recovery {
+  display: flex;
+  gap: 8px;
+  padding: 9px;
+  border: 0.5px solid color-mix(in srgb, var(--cps-danger) 45%, var(--cps-border));
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--cps-danger) 7%, var(--cps-surface));
+}
+.cps-recovery[hidden] {
+  display: none;
 }
 
 /* --- Queue / chain lists -------------------------------------------------- */

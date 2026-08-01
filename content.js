@@ -78,12 +78,17 @@
   let runState = "idle"; // "idle" | "running" | "paused"
   let cancel = false;
   let sentCount = 0;
+  let completedCount = 0;
+  let skippedCount = 0;
   let totalCount = 0;
   let currentQueueIndex = -1; // which visible queue row is sending
   let activeTab = "queue";
   let lastReply = ""; // most recent answer, for {{last_reply}}
   let replySnapshot = ""; // for text-stability "busy" detection (no-stop sites)
   let replyChangedAt = 0;
+  let awaitingRecovery = false;
+  let resolveRecovery = null;
+  let onboardingDismissed = false;
 
   // Dynamic variables filled from ChatGPT at run time rather than by the user.
   const RESERVED_VARS = ["last_reply", "last_response", "previous"];
@@ -101,6 +106,12 @@
   const KEY_QUEUE = "cps_queue";
   const KEY_CHAINS = "cps_chains";
   const KEY_SETTINGS = "cps_settings";
+  const KEY_ONBOARDING = "cps_onboarding_dismissed";
+  const EXAMPLE_PROMPTS = [
+    "Research {{topic}} and explain the five most important points.",
+    "Turn the previous answer into a clear step-by-step outline.",
+    "Write a concise final response using that outline.",
+  ];
 
   // ==========================================================================
   // Site adapters — per-platform selectors. The queue/runner logic is
@@ -160,28 +171,6 @@
       assistant: ["message-content .markdown", "message-content", ".model-response-text"],
       continueText: [],
     },
-    google: {
-      name: "Google AI Mode",
-      // www.google.com AI Mode. Google's classes are obfuscated and change
-      // often; anchored on placeholder + aria where possible. `requireEditor`
-      // keeps the panel off normal Google searches.
-      host: /^(www\.)?google\.com$/,
-      requireEditor: true,
-      // Verified on www.google.com AI Mode (2026-07): editor textarea
-      // placeholder "Ask anything", send aria "Send", reply block .mZJni.
-      // AI Mode has NO stop button, so completion is detected by the reply
-      // text stabilising (noStopButton). No bare `textarea` fallback here —
-      // Google's own search box is a textarea, so we must not mount on
-      // ordinary searches.
-      noStopButton: true,
-      editor: ['textarea[placeholder="Ask anything" i]',
-        'div[contenteditable="true"][aria-label*="Ask" i]'],
-      send: ['button[aria-label="Send" i]', 'button[aria-label*="Send" i]'],
-      stop: [],
-      newChat: [],
-      assistant: [".mZJni", '[class*="markdown"]'],
-      continueText: [],
-    },
     deepseek: {
       name: "DeepSeek",
       // NOTE: best-effort — not yet verified against a live chat.deepseek.com
@@ -214,10 +203,6 @@
     ChatGPT: { accent: "#19c37d" },
     Claude: { accent: "#d97757" },
     Gemini: { accent: "#4b8bf5", dot: "linear-gradient(135deg,#4b8bf5,#9168f0)" },
-    "Google AI Mode": {
-      accent: "#4285f4",
-      dot: "conic-gradient(from 90deg,#4285f4,#ea4335,#fbbc05,#34a853,#4285f4)",
-    },
     DeepSeek: { accent: "#4d6bfe" },
   };
   const BRAND = BRANDS[SITE.name] || { accent: "#19c37d" };
@@ -262,7 +247,7 @@
   }
 
   // "Is the model still working?" — a stop button (most sites) OR, for sites
-  // with no stop control (Google AI Mode), the reply text still growing.
+  // without a reliable stop control, the reply text still growing.
   // Still rendering an image/media in the latest reply? Image generation on
   // ChatGPT removes the stop button while the picture is still being drawn, so
   // without this the next prompt would fire early and cancel the image. We look
@@ -365,6 +350,16 @@
     return true;
   }
 
+  function getEditorText() {
+    const editor = getEditor();
+    if (!editor) return "";
+    return String(
+      editor.tagName === "TEXTAREA"
+        ? editor.value
+        : editor.innerText || editor.textContent || ""
+    ).trim();
+  }
+
   function clickSend() {
     const btn = getSendButton();
     if (btn && !btn.disabled && btn.getAttribute("aria-disabled") !== "true") {
@@ -389,6 +384,71 @@
       return true;
     }
     return false;
+  }
+
+  // Sending is only considered accepted when the composer clears, generation
+  // begins, or a new assistant response appears. A failed click is retried once
+  // while the prompt is still visibly present, avoiding duplicate submissions.
+  async function sendAndWaitForReply(text) {
+    const previousReply = getLastReplyText();
+    if (!setPromptText(text)) {
+      return { ok: false, reason: "Couldn't find the input box on this page." };
+    }
+
+    const inserted = await waitFor(() => getEditorText().length > 0, {
+      timeout: 2000,
+      interval: 100,
+    });
+    if (!inserted) {
+      return { ok: false, reason: "The site rejected the prompt text." };
+    }
+
+    replySnapshot = previousReply;
+    replyChangedAt = 0;
+
+    let responseSeen = false;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      if (cancel) return { ok: false, cancelled: true };
+      if (attempt === 2) setStatus("Send wasn't confirmed — retrying once…", true);
+
+      await sleep(250);
+      const clicked = clickSend();
+      if (!clicked) continue;
+
+      const accepted = await waitFor(() => {
+        const replyChanged = getLastReplyText() !== previousReply;
+        const busy = isBusy();
+        responseSeen = responseSeen || replyChanged || busy;
+        return responseSeen || getEditorText().length === 0;
+      }, { timeout: 8000, interval: 200 });
+
+      if (accepted) break;
+      // If the prompt disappeared, it may already have been accepted; never
+      // click again in that case because doing so could submit it twice.
+      if (getEditorText().length === 0) break;
+    }
+
+    if (cancel) return { ok: false, cancelled: true };
+
+    if (!responseSeen) {
+      responseSeen = await waitFor(() => {
+        return isBusy() || getLastReplyText() !== previousReply;
+      }, { timeout: 30000, interval: 250 });
+    }
+    if (!responseSeen) {
+      return {
+        ok: false,
+        reason: "The prompt was not confirmed and no AI response started.",
+      };
+    }
+
+    const finished = await waitForIdle();
+    if (!finished) {
+      return cancel
+        ? { ok: false, cancelled: true }
+        : { ok: false, reason: "The AI response did not finish within 15 minutes." };
+    }
+    return { ok: true, reply: getLastReplyText() };
   }
 
   // ==========================================================================
@@ -456,7 +516,7 @@
       }
       await sleep(300);
     }
-    return true;
+    return false;
   }
 
   async function startNewChat() {
@@ -501,7 +561,10 @@
     runState = "running";
     cancel = false;
     sentCount = 0;
+    completedCount = 0;
+    skippedCount = 0;
     totalCount = runList.length;
+    hideRecovery();
     renderControls();
     updateProgress();
 
@@ -529,26 +592,40 @@
       RESERVED_VARS.forEach((n) => (dyn[n] = lastReply));
       const outgoing = applyVars(runList[i].text, dyn);
 
-      setStatus(`Sending ${i + 1} of ${runList.length}…`, true);
-      if (!setPromptText(outgoing)) {
-        setStatus("Couldn't find the input box on this page.", false);
-        break;
+      let stepComplete = false;
+      while (!stepComplete && !cancel) {
+        runState = "running";
+        setStatus(`Sending ${i + 1} of ${runList.length}…`, true);
+        renderControls();
+
+        const result = await sendAndWaitForReply(outgoing);
+        if (result.cancelled || cancel) break;
+
+        if (result.ok) {
+          lastReply = result.reply;
+          sentCount++;
+          completedCount++;
+          stepComplete = true;
+          updateProgress();
+          continue;
+        }
+
+        const action = await requestRecovery(
+          `${result.reason} Prompt ${i + 1} was not marked as sent.`
+        );
+        if (action === "retry") continue;
+        if (action === "skip") {
+          runState = "running";
+          skippedCount++;
+          completedCount++;
+          stepComplete = true;
+          updateProgress();
+          setStatus(`Skipped prompt ${i + 1}.`, false);
+        } else {
+          cancel = true;
+        }
       }
-      // Baseline the reply text so the new answer registers as a change on
-      // no-stop-button sites (Google AI Mode).
-      replySnapshot = getLastReplyText();
-      replyChangedAt = 0;
-
-      await sleep(250);
-      clickSend();
-
-      await waitFor(() => isBusy(), { timeout: 8000 });
-      await waitForIdle();
       if (cancel) break;
-
-      lastReply = getLastReplyText(); // capture for the next {{last_reply}}
-      sentCount++;
-      updateProgress();
 
       if (i < runList.length - 1 && settings.delay > 0) {
         setStatus(`Waiting ${settings.delay}s before next…`, true);
@@ -557,19 +634,21 @@
       }
     }
 
-    const finished = sentCount >= totalCount && !cancel;
+    const finished = completedCount >= totalCount && !cancel;
     runState = "idle";
     cancel = false;
+    hideRecovery();
     currentQueueIndex = -1;
-    setStatus(
-      finished ? `Done — sent ${sentCount} prompt(s).` : `Stopped after ${sentCount}.`,
-      false
-    );
+    const doneText = skippedCount
+      ? `Done — sent ${sentCount}, skipped ${skippedCount}.`
+      : `Done — sent ${sentCount} prompt(s).`;
+    setStatus(finished ? doneText : `Stopped after ${sentCount} sent.`, false);
     renderControls();
     renderQueue();
   }
 
   function pauseOrResume() {
+    if (awaitingRecovery) return;
     if (runState === "running") {
       runState = "paused";
       setStatus("Paused — finishes after the current reply.", false);
@@ -582,7 +661,7 @@
 
   function stop() {
     cancel = true;
-    runState = "idle";
+    if (resolveRecovery) resolveRecovery("stop");
     setStatus("Stopping…", false);
     renderControls();
   }
@@ -623,22 +702,33 @@
 
   function restore() {
     const done = () => {
+      if ((queue.length || chains.length) && !onboardingDismissed) {
+        onboardingDismissed = true;
+        try {
+          chrome.storage.local.set({ [KEY_ONBOARDING]: true });
+        } catch (_) {}
+      }
       syncSettingsInputs();
       applyTheme();
       renderAll();
+      requestAnimationFrame(() => constrainPanel());
     };
     try {
-      chrome.storage.local.get([KEY_QUEUE, KEY_CHAINS, KEY_SETTINGS], (loc) => {
-        if (loc && Array.isArray(loc[KEY_QUEUE])) queue = loc[KEY_QUEUE];
-        if (loc && Array.isArray(loc[KEY_CHAINS])) chains = loc[KEY_CHAINS];
-        if (loc && loc[KEY_SETTINGS]) Object.assign(settings, loc[KEY_SETTINGS]);
-        // Sync copy wins for chains/settings when present.
-        syncArea().get([KEY_CHAINS, KEY_SETTINGS], (syn) => {
-          if (syn && Array.isArray(syn[KEY_CHAINS])) chains = syn[KEY_CHAINS];
-          if (syn && syn[KEY_SETTINGS]) Object.assign(settings, syn[KEY_SETTINGS]);
-          done();
-        });
-      });
+      chrome.storage.local.get(
+        [KEY_QUEUE, KEY_CHAINS, KEY_SETTINGS, KEY_ONBOARDING],
+        (loc) => {
+          if (loc && Array.isArray(loc[KEY_QUEUE])) queue = loc[KEY_QUEUE];
+          if (loc && Array.isArray(loc[KEY_CHAINS])) chains = loc[KEY_CHAINS];
+          if (loc && loc[KEY_SETTINGS]) Object.assign(settings, loc[KEY_SETTINGS]);
+          onboardingDismissed = !!(loc && loc[KEY_ONBOARDING]);
+          // Sync copy wins for chains/settings when present.
+          syncArea().get([KEY_CHAINS, KEY_SETTINGS], (syn) => {
+            if (syn && Array.isArray(syn[KEY_CHAINS])) chains = syn[KEY_CHAINS];
+            if (syn && syn[KEY_SETTINGS]) Object.assign(settings, syn[KEY_SETTINGS]);
+            done();
+          });
+        }
+      );
     } catch (_) {
       done();
     }
@@ -667,6 +757,7 @@
       if (Array.isArray(data.queue)) queue = data.queue;
       if (Array.isArray(data.chains)) chains = data.chains;
       if (data.settings) Object.assign(settings, data.settings);
+      if (queue.length || chains.length) dismissOnboarding();
       persistQueue();
       persistChains();
       persistSettings();
@@ -770,8 +861,9 @@
     const logoUrl = extUrl("icon48.png");
     panel = document.createElement("div");
     panel.id = "cps-panel";
+    panel.classList.add("cps-collapsed");
     panel.innerHTML = `
-      <div class="cps-header">
+      <div class="cps-header" title="Click to expand">
         <img class="cps-logo" src="${logoUrl}" alt="" draggable="false" />
         <div class="cps-titles">
           <span class="cps-title">Prompt Stacker</span>
@@ -781,6 +873,7 @@
           </span>
         </div>
         <span class="cps-count" id="cps-count" hidden></span>
+        <span class="cps-expand-hint">Click to expand</span>
         <div class="cps-header-btns">
           <button class="cps-icon-btn" id="cps-theme" title="Theme">◐</button>
           <button class="cps-icon-btn" id="cps-collapse" title="Collapse">–</button>
@@ -795,6 +888,17 @@
       <div class="cps-body">
         <!-- Queue pane -->
         <div class="cps-pane" data-pane="queue">
+          <div class="cps-onboarding" id="cps-onboarding" hidden>
+            <div class="cps-onboarding-title">Build your first stack</div>
+            <div class="cps-onboarding-copy">
+              Separate prompts with a blank line. Each one sends after the AI
+              finishes the previous reply.
+            </div>
+            <div class="cps-row">
+              <button class="cps-btn cps-primary" id="cps-example">Try an example</button>
+              <button class="cps-btn" id="cps-onboarding-close">Got it</button>
+            </div>
+          </div>
           <textarea class="cps-input" id="cps-input"
             placeholder="Type your prompts here…"></textarea>
           <div class="cps-inserts">
@@ -842,7 +946,11 @@
           </div>
 
           <div class="cps-progress"><div class="cps-progress-bar" id="cps-progress"></div></div>
-          <div class="cps-status" id="cps-status"></div>
+          <div class="cps-status" id="cps-status" role="status" aria-live="polite"></div>
+          <div class="cps-recovery" id="cps-recovery" hidden>
+            <button class="cps-btn cps-primary" id="cps-retry">Retry step</button>
+            <button class="cps-btn" id="cps-skip">Skip step</button>
+          </div>
 
           <ul class="cps-list" id="cps-queue"></ul>
 
@@ -917,6 +1025,7 @@
     if (parsed.length) {
       queue.push(...parsed);
       input.value = "";
+      dismissOnboarding();
       persistQueue();
       renderQueue();
     }
@@ -929,6 +1038,13 @@
     panel.querySelector(".cps-title").title = "Active on " + SITE.name;
 
     $("#cps-add").onclick = addToQueue;
+    $("#cps-example").onclick = () => {
+      input.value = EXAMPLE_PROMPTS.join("\n\n");
+      dismissOnboarding();
+      input.focus();
+      setStatus("Example loaded — edit it or add it to your queue.", false);
+    };
+    $("#cps-onboarding-close").onclick = dismissOnboarding;
     // ⌘/Ctrl+Enter in the box adds to the queue.
     input.addEventListener("keydown", (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
@@ -945,6 +1061,12 @@
     $("#cps-start").onclick = start;
     $("#cps-pause").onclick = pauseOrResume;
     $("#cps-stop").onclick = stop;
+    $("#cps-retry").onclick = () => {
+      if (resolveRecovery) resolveRecovery("retry");
+    };
+    $("#cps-skip").onclick = () => {
+      if (resolveRecovery) resolveRecovery("skip");
+    };
     $("#cps-clear").onclick = () => {
       if (runState !== "idle") return;
       queue = [];
@@ -960,6 +1082,9 @@
 
     $("#cps-collapse").onclick = toggleCollapse;
     $("#cps-theme").onclick = cycleTheme;
+    panel.querySelector(".cps-options").addEventListener("toggle", () => {
+      requestAnimationFrame(() => constrainPanel());
+    });
 
     // Tabs
     panel.querySelectorAll(".cps-tab").forEach((tab) => {
@@ -1013,13 +1138,18 @@
       p.hidden = p.dataset.pane !== name;
     });
     if (name === "library") renderChains();
+    requestAnimationFrame(() => constrainPanel());
   }
 
   function toggleCollapse() {
     panel.classList.toggle("cps-collapsed");
     const collapsed = panel.classList.contains("cps-collapsed");
     panel.querySelector("#cps-collapse").textContent = collapsed ? "+" : "–";
+    panel.querySelector(".cps-header").title = collapsed
+      ? "Click to expand"
+      : "Drag to move · click to collapse";
     updateCount();
+    requestAnimationFrame(() => constrainPanel());
   }
 
   // Small badge on the header/pill showing how many prompts are queued.
@@ -1042,18 +1172,42 @@
 
   function updateProgress() {
     if (!progressBar) return;
-    const pct = totalCount > 0 ? (sentCount / totalCount) * 100 : 0;
+    const pct = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
     progressBar.style.width = pct + "%";
+  }
+
+  function hideRecovery() {
+    awaitingRecovery = false;
+    resolveRecovery = null;
+    const recovery = panel && panel.querySelector("#cps-recovery");
+    if (recovery) recovery.hidden = true;
+  }
+
+  function requestRecovery(message) {
+    awaitingRecovery = true;
+    runState = "paused";
+    if (panel.classList.contains("cps-collapsed")) toggleCollapse();
+    setStatus(message, false);
+    panel.querySelector("#cps-recovery").hidden = false;
+    renderControls();
+    requestAnimationFrame(() => constrainPanel());
+
+    return new Promise((resolve) => {
+      resolveRecovery = (action) => {
+        hideRecovery();
+        resolve(action);
+      };
+    });
   }
 
   function renderControls() {
     if (!panel) return;
     const running = runState !== "idle";
     panel.querySelector("#cps-start").disabled = running || queue.length === 0;
-    panel.querySelector("#cps-pause").disabled = !running;
+    panel.querySelector("#cps-pause").disabled = !running || awaitingRecovery || cancel;
     panel.querySelector("#cps-pause").textContent =
       runState === "paused" ? "Resume" : "Pause";
-    panel.querySelector("#cps-stop").disabled = !running;
+    panel.querySelector("#cps-stop").disabled = !running || cancel;
     panel.querySelector("#cps-clear").disabled = running;
   }
 
@@ -1070,6 +1224,7 @@
       li.textContent = "No prompts queued yet.";
       listEl.appendChild(li);
       renderControls();
+      requestAnimationFrame(() => constrainPanel());
       return;
     }
 
@@ -1136,6 +1291,7 @@
     });
 
     renderControls();
+    requestAnimationFrame(() => constrainPanel());
   }
 
   function beginInlineEdit(li, span, i) {
@@ -1232,8 +1388,23 @@
   function renderAll() {
     renderQueue();
     renderChains();
+    renderOnboarding();
     renderControls();
     updateProgress();
+  }
+
+  function renderOnboarding() {
+    const el = panel && panel.querySelector("#cps-onboarding");
+    if (el) el.hidden = onboardingDismissed;
+  }
+
+  function dismissOnboarding() {
+    onboardingDismissed = true;
+    try {
+      chrome.storage.local.set({ [KEY_ONBOARDING]: true });
+    } catch (_) {}
+    renderOnboarding();
+    requestAnimationFrame(() => constrainPanel());
   }
 
   // ==========================================================================
@@ -1285,6 +1456,7 @@
       const parsed = parsePrompts(text);
       if (parsed.length) {
         queue.push(...parsed);
+        dismissOnboarding();
         persistQueue();
         renderQueue();
         setStatus(`Imported ${parsed.length} prompt(s).`, false);
@@ -1403,6 +1575,17 @@
   // ==========================================================================
   // Dragging the whole panel
   // ==========================================================================
+  function constrainPanel(el = panel) {
+    if (!el || !el.isConnected) return;
+    const edge = 8;
+    const r = el.getBoundingClientRect();
+    const maxLeft = Math.max(edge, window.innerWidth - r.width - edge);
+    const maxTop = Math.max(edge, window.innerHeight - r.height - edge);
+    el.style.left = Math.min(maxLeft, Math.max(edge, r.left)) + "px";
+    el.style.top = Math.min(maxTop, Math.max(edge, r.top)) + "px";
+    el.style.right = "auto";
+  }
+
   function makeDraggable(el, handle) {
     let sx, sy, ox, oy, dragging = false, moved = false;
     handle.addEventListener("mousedown", (e) => {
@@ -1422,8 +1605,14 @@
         moved = true;
       }
       if (!moved) return;
-      el.style.left = ox + (e.clientX - sx) + "px";
-      el.style.top = oy + (e.clientY - sy) + "px";
+      const r = el.getBoundingClientRect();
+      const edge = 8;
+      const maxLeft = Math.max(edge, window.innerWidth - r.width - edge);
+      const maxTop = Math.max(edge, window.innerHeight - r.height - edge);
+      const nextLeft = ox + (e.clientX - sx);
+      const nextTop = oy + (e.clientY - sy);
+      el.style.left = Math.min(maxLeft, Math.max(edge, nextLeft)) + "px";
+      el.style.top = Math.min(maxTop, Math.max(edge, nextTop)) + "px";
       el.style.right = "auto";
     });
     document.addEventListener("mouseup", (e) => {
@@ -1461,40 +1650,13 @@
     applyBrand();
     watchPageTheme();
     document.addEventListener("keydown", onKey);
+    window.addEventListener("resize", () => constrainPanel());
     restore();
-  }
-
-  // True only when this site's *specific* AI composer is present (ignores the
-  // shared generic fallbacks, so Google's search box doesn't count).
-  function aiComposerPresent() {
-    for (const sel of SITE.editor || []) {
-      for (const el of document.querySelectorAll(sel)) {
-        if (!el.closest("#cps-panel")) return true;
-      }
-    }
-    return false;
   }
 
   function init() {
     if (document.getElementById("cps-panel")) return;
-    if (!SITE.requireEditor) {
-      mount();
-      return;
-    }
-    // Gated sites (Google): mount only once the AI composer appears, and watch
-    // for it in case the user switches into AI Mode after load.
-    if (aiComposerPresent()) {
-      mount();
-      return;
-    }
-    const obs = new MutationObserver(() => {
-      if (aiComposerPresent()) {
-        obs.disconnect();
-        mount();
-      }
-    });
-    obs.observe(document.documentElement, { childList: true, subtree: true });
-    setTimeout(() => obs.disconnect(), 30000);
+    mount();
   }
 
   if (document.body) init();

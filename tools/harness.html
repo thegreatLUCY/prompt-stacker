@@ -38,8 +38,8 @@
     ];
 
     const sampleData = {
-      cps_queue: sampleQueue,
-      cps_chains: sampleChains,
+      cps_queue: q.get("firstuse") ? [] : sampleQueue,
+      cps_chains: q.get("firstuse") ? [] : sampleChains,
       cps_settings: { themeMode: "auto", autoContinue: true, delay: 3, repeat: 1 }
     };
     const area = {
@@ -73,7 +73,7 @@
         const d = document.querySelector(".cps-options");
         if (d) d.open = true;
       }
-      if (q.get("collapsed")) {
+      if (!q.get("collapsed")) {
         document.querySelector("#cps-collapse").click();
       }
       // Simulate a detected platform (harness runs off-domain as ChatGPT).

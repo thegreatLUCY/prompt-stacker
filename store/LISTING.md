@@ -31,7 +31,9 @@ reply is done. No API keys, no accounts, no background automation.
 ━━ WHAT IT DOES ━━
 • Prompt queue — stack as many prompts as you like; the next sends automatically
   when the current reply finishes.
-• Works on ChatGPT, Claude, Gemini, Google AI Mode and DeepSeek — one extension,
+• Confirms each send, retries once when safe, and pauses with Retry / Skip
+  controls instead of silently advancing after a failure.
+• Works on ChatGPT, Claude, Gemini and DeepSeek — one extension,
   and it auto-detects which AI you're on.
 • Chain replies — use {{last_reply}} to feed the AI's previous answer straight
   into the next prompt.
@@ -65,15 +67,16 @@ when the AI chat page finishes its previous reply.
 
 **Permission justification — `storage`**
 ```
-Used to save the user's prompt queue, saved chains and settings locally in the
+Used to save the user's prompt queue, saved chains, settings and interface preferences locally in the
 browser so they persist between sessions. No data is transmitted.
 ```
 
 **Host permission justification** (for the content-script matches)
 ```
-The panel runs only on supported AI chat sites (ChatGPT, Claude, Gemini, Google
-AI Mode, DeepSeek) so it can place the user's prompt into that site's input box
-and click its send button. It does not read or transmit page data anywhere.
+The panel runs only on supported AI chat sites (ChatGPT, Claude, Gemini and
+DeepSeek) so it can place the user's prompt into that site's input box
+and click its send button. It reads only the interface state and latest response
+needed to run the queue, and never transmits that data anywhere.
 ```
 
 **Remote code:** No, I am not using remote code.
