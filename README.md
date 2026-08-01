@@ -8,6 +8,11 @@
 
 Works on **ChatGPT · Claude · Gemini · DeepSeek**. No more babysitting the tab — line up your prompts, hit **Start**, walk away.
 
+[![Add to Chrome](https://img.shields.io/badge/Add%20to%20Chrome-Free-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/aghgmpdcceanccchafaacmdefmohkame)
+[![License: MIT](https://img.shields.io/badge/License-MIT-black?style=for-the-badge)](LICENSE)
+
+*No API keys · No accounts · No network requests · Open source*
+
 <img src="screenshots/queue-dark.png" width="330" alt="Prompt Stacker — dark theme" />
 
 </div>
@@ -42,6 +47,7 @@ Each platform's selectors live in a single `ADAPTERS` block in `content.js` — 
 - ⏱️ **Delay between prompts** — add a breather so you can read each reply before the next fires.
 - ⏸️ **Pause / Resume / Stop** — full control mid-run; pause takes effect after the current reply.
 - 🔀 **Reorder & edit** — drag to reorder, double-click to edit a queued prompt.
+- ↩️ **Undo mistakes** — restore a removed prompt or an accidentally cleared queue for seven seconds.
 - 📚 **Saved chains** — save a sequence you reuse and load it with one click.
 - 🔤 **Variables** — write `{{topic}}` in your prompts and fill them in once at run time.
 - 🔁 **Repeat** — run the whole queue N times (great for generating variations).
@@ -63,15 +69,22 @@ Collapse it to a tidy pill with a live queue count — click the pill to expand 
 
 <div align="center"><img src="screenshots/pill-dark.png" width="300" alt="Collapsed pill with queue count" /></div>
 
-## Install (unpacked)
+## Install
 
-Not on the Chrome Web Store — load it as an unpacked extension:
+**[➜ Add to Chrome — free, from the Chrome Web Store](https://chromewebstore.google.com/detail/aghgmpdcceanccchafaacmdefmohkame)**
+
+One click, no developer mode, auto-updates. Works in Chrome, Edge, Brave, Arc and any Chromium browser.
+
+<details>
+<summary>Or install unpacked (for development)</summary>
 
 1. **Download** this repo (green **Code** button → *Download ZIP*, then unzip) or `git clone` it.
 2. Open **`chrome://extensions`** in Chrome.
 3. Turn on **Developer mode** (top-right).
 4. Click **Load unpacked** and select the project folder.
 5. Open any [supported platform](#supported-platforms) (e.g. [chatgpt.com](https://chatgpt.com)) — the **Prompt Stacker** panel appears top-right. Refresh if it doesn't.
+
+</details>
 
 ## How to use
 

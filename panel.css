@@ -557,6 +557,41 @@ textarea.cps-input::placeholder {
   display: none;
 }
 
+/* --- Temporary undo notice ----------------------------------------------- */
+.cps-toast {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 0.5px solid var(--cps-border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--cps-bg) 90%, var(--cps-text));
+  color: var(--cps-text);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  font-size: 11.5px;
+}
+.cps-toast[hidden] {
+  display: none;
+}
+.cps-toast button {
+  flex: none;
+  padding: 3px 7px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--cps-accent);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+.cps-toast button:hover {
+  background: color-mix(in srgb, var(--cps-accent) 12%, transparent);
+}
+
 /* --- Queue / chain lists -------------------------------------------------- */
 .cps-list {
   list-style: none;

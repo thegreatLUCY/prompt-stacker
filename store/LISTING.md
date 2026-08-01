@@ -39,7 +39,8 @@ reply is done. No API keys, no accounts, no background automation.
   into the next prompt.
 • Fill-in blanks — write {{topic}} and fill it in once when you press Start.
 • Delay, pause, resume, stop — full control mid-run.
-• Reorder & edit queued prompts; save sequences you reuse as one-click chains.
+• Reorder and edit queued prompts, with Undo for removals and clearing; save
+  sequences you reuse as one-click chains.
 • Repeat the whole queue N times to generate variations.
 • Auto-continue truncated replies; optional auto-pause on usage limits.
 • Follows each site's light / dark mode automatically.

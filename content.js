@@ -89,6 +89,8 @@
   let awaitingRecovery = false;
   let resolveRecovery = null;
   let onboardingDismissed = false;
+  let undoAction = null;
+  let undoTimer = null;
 
   // Dynamic variables filled from ChatGPT at run time rather than by the user.
   const RESERVED_VARS = ["last_reply", "last_response", "previous"];
@@ -952,6 +954,11 @@
             <button class="cps-btn" id="cps-skip">Skip step</button>
           </div>
 
+          <div class="cps-toast" id="cps-toast" role="status" aria-live="polite" hidden>
+            <span id="cps-toast-message"></span>
+            <button type="button" id="cps-undo">Undo</button>
+          </div>
+
           <ul class="cps-list" id="cps-queue"></ul>
 
           <div class="cps-footer">
@@ -1069,10 +1076,22 @@
     };
     $("#cps-clear").onclick = () => {
       if (runState !== "idle") return;
+      const cleared = queue.slice();
+      if (!cleared.length) return;
       queue = [];
       persistQueue();
       renderQueue();
+      offerUndo(
+        `Cleared ${cleared.length} prompt${cleared.length === 1 ? "" : "s"}.`,
+        () => {
+          queue = [...cleared, ...queue];
+          persistQueue();
+          renderQueue();
+          setStatus("Queue restored.", false);
+        }
+      );
     };
+    $("#cps-undo").onclick = runUndo;
 
     $("#cps-save").onclick = saveCurrentAsChain;
     $("#cps-export").onclick = exportQueue;
@@ -1170,6 +1189,31 @@
     statusEl.classList.toggle("cps-active", !!active);
   }
 
+  function hideUndo() {
+    if (undoTimer) clearTimeout(undoTimer);
+    undoTimer = null;
+    undoAction = null;
+    const toast = panel && panel.querySelector("#cps-toast");
+    if (toast) toast.hidden = true;
+    requestAnimationFrame(() => constrainPanel());
+  }
+
+  function offerUndo(message, action) {
+    if (undoTimer) clearTimeout(undoTimer);
+    undoAction = action;
+    const toast = panel.querySelector("#cps-toast");
+    panel.querySelector("#cps-toast-message").textContent = message;
+    toast.hidden = false;
+    undoTimer = setTimeout(hideUndo, 7000);
+    requestAnimationFrame(() => constrainPanel());
+  }
+
+  function runUndo() {
+    const action = undoAction;
+    hideUndo();
+    if (action) action();
+  }
+
   function updateProgress() {
     if (!progressBar) return;
     const pct = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
@@ -1208,7 +1252,7 @@
     panel.querySelector("#cps-pause").textContent =
       runState === "paused" ? "Resume" : "Pause";
     panel.querySelector("#cps-stop").disabled = !running || cancel;
-    panel.querySelector("#cps-clear").disabled = running;
+    panel.querySelector("#cps-clear").disabled = running || queue.length === 0;
   }
 
   let dragIndex = null;
@@ -1252,9 +1296,15 @@
       rm.textContent = "×";
       rm.title = "Remove";
       rm.onclick = () => {
-        queue.splice(i, 1);
+        const [removed] = queue.splice(i, 1);
         persistQueue();
         renderQueue();
+        offerUndo("Prompt removed.", () => {
+          queue.splice(Math.min(i, queue.length), 0, removed);
+          persistQueue();
+          renderQueue();
+          setStatus("Prompt restored.", false);
+        });
       };
 
       // Drag to reorder
