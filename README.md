@@ -4,6 +4,10 @@
 
 # Prompt Stacker
 
+## [➜ Install free from the Chrome Web Store](https://chromewebstore.google.com/detail/aghgmpdcceanccchafaacmdefmohkame)
+
+**Available now on the Chrome Web Store — no developer mode needed.**
+
 **Queue up a stack of prompts and let them send themselves — each one fires the moment the AI finishes the previous reply.**
 
 Works on **ChatGPT · Claude · Gemini · DeepSeek**. No more babysitting the tab — line up your prompts, hit **Start**, walk away.
@@ -58,6 +62,7 @@ Each platform's selectors live in a single `ADAPTERS` block in `content.js` — 
 - 📌 **Compact by default** — opens as a tidy draggable pill with a queue count and expands only when you click it.
 - 👋 **Friendly first run** — a short guide explains prompt stacks and can load an editable three-step example.
 - 📐 **Viewport-safe panel** — adapts to small windows, scrolls internally, and stays within the visible browser area while dragging.
+- 📍 **Remembers its position** — the compact pill and expanded panel each keep their own position on every supported platform, even after a page refresh.
 
 ## Screenshots
 
@@ -134,8 +139,12 @@ Prompt Stacker requests a single permission: **`storage`** (to remember your que
 ## Development
 
 ```bash
-node test/parse.test.cjs      # run the unit tests
+npm test                    # run helper and panel-position regression tests
 ```
+
+To check dragging, collapse/expand, and refresh recovery in a real browser, serve
+the project locally and open `test/position.html`. It uses isolated test storage,
+so it cannot change your installed extension's queue or library.
 
 Regenerate the screenshots (requires Google Chrome):
 

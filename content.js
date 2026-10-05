@@ -197,6 +197,13 @@
   }
 
   const SITE = detectSite();
+  // Separate local positions for each platform and each panel size. Expanding
+  // may clamp the larger panel, but must not move the user's compact pill.
+  const POSITION_KEYS = {
+    collapsed: `cps_position_${SITE.name.toLowerCase()}_collapsed`,
+    expanded: `cps_position_${SITE.name.toLowerCase()}_expanded`,
+  };
+  const panelPositions = { collapsed: null, expanded: null };
 
   // Per-platform brand accent — the panel tints its primary action, progress,
   // focus rings and active tab to the detected model, and shows a matching
@@ -717,8 +724,9 @@
     };
     try {
       chrome.storage.local.get(
-        [KEY_QUEUE, KEY_CHAINS, KEY_SETTINGS, KEY_ONBOARDING],
+        [KEY_QUEUE, KEY_CHAINS, KEY_SETTINGS, KEY_ONBOARDING, ...Object.values(POSITION_KEYS)],
         (loc) => {
+          restorePanelPositions(loc);
           if (loc && Array.isArray(loc[KEY_QUEUE])) queue = loc[KEY_QUEUE];
           if (loc && Array.isArray(loc[KEY_CHAINS])) chains = loc[KEY_CHAINS];
           if (loc && loc[KEY_SETTINGS]) Object.assign(settings, loc[KEY_SETTINGS]);
@@ -1161,6 +1169,9 @@
   }
 
   function toggleCollapse() {
+    // Capture a mode's initial position once; subsequent moves are saved when
+    // dragging ends. Viewport clamping must not overwrite preferred positions.
+    if (!panelPositions[panelPositionMode()]) rememberPanelPosition();
     panel.classList.toggle("cps-collapsed");
     const collapsed = panel.classList.contains("cps-collapsed");
     panel.querySelector("#cps-collapse").textContent = collapsed ? "+" : "–";
@@ -1168,7 +1179,7 @@
       ? "Click to expand"
       : "Drag to move · click to collapse";
     updateCount();
-    requestAnimationFrame(() => constrainPanel());
+    applyPanelPosition();
   }
 
   // Small badge on the header/pill showing how many prompts are queued.
@@ -1625,10 +1636,55 @@
   // ==========================================================================
   // Dragging the whole panel
   // ==========================================================================
+  function panelPositionMode() {
+    return panel.classList.contains("cps-collapsed") ? "collapsed" : "expanded";
+  }
+
+  function rememberPanelPosition() {
+    if (!panel || !panel.isConnected) return;
+    const mode = panelPositionMode();
+    const position = { left: panel.offsetLeft, top: panel.offsetTop };
+    panelPositions[mode] = position;
+    try {
+      chrome.storage.local.set({ [POSITION_KEYS[mode]]: position }, () => {
+        // Consume a storage error without interrupting dragging/collapsing.
+        if (chrome.runtime) void chrome.runtime.lastError;
+      });
+    } catch (_) {}
+  }
+
+  function restorePanelPositions(data) {
+    for (const mode of Object.keys(POSITION_KEYS)) {
+      const position = data && data[POSITION_KEYS[mode]];
+      if (!panelPositions[mode] && position &&
+          Number.isFinite(position.left) && Number.isFinite(position.top) &&
+          position.left >= 0 && position.top >= 0) {
+        panelPositions[mode] = { left: position.left, top: position.top };
+      }
+    }
+    applyPanelPosition();
+  }
+
+  function applyPanelPosition() {
+    if (!panel || !panel.isConnected) return;
+    const position = panelPositions[panelPositionMode()];
+    if (position) {
+      panel.style.left = position.left + "px";
+      panel.style.top = position.top + "px";
+      panel.style.right = "auto";
+    }
+    constrainPanel();
+  }
+
   function constrainPanel(el = panel) {
     if (!el || !el.isConnected) return;
     const edge = 8;
-    const r = el.getBoundingClientRect();
+    // Layout coordinates exclude the entrance animation's translate/scale.
+    // Using animated bounds here repeatedly nudges a restored position.
+    const r = {
+      left: el.offsetLeft, top: el.offsetTop,
+      width: el.offsetWidth, height: el.offsetHeight,
+    };
     const maxLeft = Math.max(edge, window.innerWidth - r.width - edge);
     const maxTop = Math.max(edge, window.innerHeight - r.height - edge);
     el.style.left = Math.min(maxLeft, Math.max(edge, r.left)) + "px";
@@ -1667,7 +1723,9 @@
     });
     document.addEventListener("mouseup", (e) => {
       // A click on the header (no real drag, not on a button) toggles collapse.
-      if (dragging && !moved && !e.target.closest(".cps-icon-btn")) {
+      if (dragging && moved) {
+        rememberPanelPosition();
+      } else if (dragging && !e.target.closest(".cps-icon-btn")) {
         toggleCollapse();
       }
       dragging = false;
@@ -1700,7 +1758,7 @@
     applyBrand();
     watchPageTheme();
     document.addEventListener("keydown", onKey);
-    window.addEventListener("resize", () => constrainPanel());
+    window.addEventListener("resize", applyPanelPosition);
     restore();
   }
 
