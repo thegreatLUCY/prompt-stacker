@@ -8,16 +8,18 @@
 
 **Available now on the Chrome Web Store — no developer mode needed.**
 
-**Queue up a stack of prompts and let them send themselves — each one fires the moment the AI finishes the previous reply.**
+**Queue your prompts, reuse your workflows, and save your ChatGPT images.**
+
+Version **1.6.0** is prepared in this branch. The image features reach Chrome Web Store users after the update passes review and is published.
 
 Works on **ChatGPT · Claude · Gemini · DeepSeek**. No more babysitting the tab — line up your prompts, hit **Start**, walk away.
 
 [![Add to Chrome](https://img.shields.io/badge/Add%20to%20Chrome-Free-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/aghgmpdcceanccchafaacmdefmohkame)
 [![License: MIT](https://img.shields.io/badge/License-MIT-black?style=for-the-badge)](LICENSE)
 
-*No API keys · No accounts · No network requests · Open source*
+*No developer account · No developer servers or analytics · Open source*
 
-<img src="screenshots/queue-dark.png" width="330" alt="Prompt Stacker — dark theme" />
+<img src="store/v1.6/01-queue.png" width="960" alt="Prompt Stacker 1.6 prompt queue with synthetic example prompts" />
 
 </div>
 
@@ -27,7 +29,7 @@ Works on **ChatGPT · Claude · Gemini · DeepSeek**. No more babysitting the ta
 
 You often have a *sequence* of prompts for one conversation — a lesson plan, a research thread, a multi-step draft. Normally you sit there waiting for each reply so you can paste the next one. Prompt Stacker does the waiting and the clicking for you.
 
-It only does what you'd do by hand: type into the box and click **Send** when the reply is done. **No API keys, no network calls, no scraping, no background automation** — just a queue and a click, so nothing sketchy is going on.
+The queue places your prompts in the open chat and clicks **Send** when the reply is done. On ChatGPT, the **Images** tab can also browse and download generated images using your existing signed-in session. Image files are downloaded from ChatGPT and its image hosts; no developer service receives your content.
 
 ## Supported platforms
 
@@ -39,6 +41,18 @@ It only does what you'd do by hand: type into the box and click **Send** when th
 | DeepSeek | chat.deepseek.com | 🧪 Best-effort (pending live verification) |
 
 Each platform's selectors live in a single `ADAPTERS` block in `content.js` — adding a new site or fixing a drifted selector is a one-place change.
+
+## New in 1.6.0: ChatGPT Images
+
+- **Image library picker** — browse generated images in a grid, select a batch and preview individual images.
+- **ZIP downloads** — save selected images with an `index.tsv` containing their metadata. Image bytes are preserved without cropping or re-encoding.
+- **Current conversation** — grab generated images from the current conversation branch while excluding uploaded references.
+- **Saved-image tracking** — saved badges, a download watermark, **Select new**, and **Hide downloaded** help you avoid repeating downloads.
+- **Failure recovery** — failed items remain available for retry. Failed-download details are retained in the ZIP index when a batch partly succeeds.
+- **Large batches** — archives split at a 250 MiB image-payload threshold. A part can exceed that threshold by an image and ZIP overhead; Chrome may ask you to allow multiple downloads.
+- **Queue coordination** — image jobs and the prompt queue take turns. Pause the queue before downloading; resume after the image job finishes.
+
+The image features require a signed-in ChatGPT session. They are disabled on Claude, Gemini and DeepSeek. Session access stays in tab memory; no password or API key needs to be entered into the extension.
 
 ## Features
 
@@ -66,13 +80,17 @@ Each platform's selectors live in a single `ADAPTERS` block in `content.js` — 
 
 ## Screenshots
 
-| Queue (light) | Library |
+These show the actual extension interface with synthetic prompts, history and geometric artwork. They contain no personal chats, account screenshots or real-user images.
+
+| Queue | Saved prompt chains |
 | :---: | :---: |
-| <img src="screenshots/queue-light.png" width="300" alt="Queue in light theme" /> | <img src="screenshots/library-dark.png" width="300" alt="Saved chains library" /> |
+| <img src="store/v1.6/01-queue.png" width="480" alt="Prompt queue with synthetic example prompts" /> | <img src="store/v1.6/02-chains.png" width="480" alt="Reusable example prompt chains" /> |
 
-Collapse it to a tidy pill with a live queue count — click the pill to expand again:
+<img src="store/v1.6/03-images.png" width="960" alt="ChatGPT Images tab with library and current-conversation download actions" />
 
-<div align="center"><img src="screenshots/pill-dark.png" width="300" alt="Collapsed pill with queue count" /></div>
+<img src="store/v1.6/04-picker.png" width="960" alt="Image picker with three selected synthetic landscape posters" />
+
+<img src="store/v1.6/05-select-new.png" width="960" alt="Select new highlights two new images while saved images show badges" />
 
 ## Install
 
@@ -97,6 +115,18 @@ One click, no developer mode, auto-updates. Works in Chrome, Edge, Brave, Arc an
 2. Click **Add to queue**.
 3. (Optional) Open **Options** to set a delay, repeat count, or toggles.
 4. Click **Start**. Sit back.
+
+### Save ChatGPT images
+
+1. Open ChatGPT and expand Prompt Stacker, then choose **Images**.
+2. Pause any running prompt queue.
+3. Choose **Pick from image library…**, select images, then click **Download**. Alternatively, choose **Grab all images in this thread** from a conversation with generated outputs.
+4. Allow multiple downloads if Chrome asks during a large batch. Check all ZIP parts, including any final index-only failure report.
+5. Review `index.tsv` for metadata or failed downloads. ZIP indexes can contain prompts, so review archives before sharing them.
+
+**Select new** compares loaded image timestamps against your last download watermark and excludes remembered saved IDs. It becomes available after your first successful download. It is not a list of every older image you ever skipped; use **Hide downloaded** to find older unsaved items.
+
+Inside the picker, use the arrow keys to move, **Space** to select, **F** to preview, and **Esc** to close the preview or picker. Prompt queue shortcuts stand down while the picker is open.
 
 ### Prompt format
 
@@ -134,34 +164,47 @@ Write a short dialogue using those words.
 
 ## Privacy
 
-Prompt Stacker requests a single permission: **`storage`** (to remember your queue, chains, and settings locally). It runs only on supported AI chat pages, makes **zero network requests**, and sends **none of your data anywhere**. Everything stays in your browser.
+Prompt Stacker requests the **`storage`** permission and runs on the supported AI chat sites. Your working queue is stored locally; saved chains and settings may use your own Chrome Sync account. Starting a queue sends those prompts to the AI service you use.
+
+The image tools request your session, generated-image metadata and image files from ChatGPT and its existing image hosts over HTTPS. Session tokens stay in tab memory. Download history is stored locally, and image ZIPs are saved on your device. No developer servers, analytics or advertising trackers receive your prompts, replies, images or credentials.
+
+Downloaded ZIP indexes and exported prompt backups can contain private prompts and metadata. Review them before sharing. See the full [privacy policy](PRIVACY.md).
 
 ## Development
 
 ```bash
-npm test                    # run helper and panel-position regression tests
+npm test                    # parsing, position, coordination, history and thread regressions
+node test/verify-archives.cjs # real 250 MiB split, CRCs and byte-integrity checks (large temporary files)
+python3 test/release-privacy.py # package-input and unpublished-history privacy scan
 ```
 
 To check dragging, collapse/expand, and refresh recovery in a real browser, serve
 the project locally and open `test/position.html`. It uses isolated test storage,
 so it cannot change your installed extension's queue or library.
 
-Regenerate the screenshots (requires Google Chrome):
+Generate the synthetic store screenshots with Playwright in a fresh offline browser:
 
 ```bash
-# renders the real panel via content.js in a headless harness
-open tools/harness.html       # or see the shot() helper used to build screenshots/
+PLAYWRIGHT_MODULE=/path/to/playwright QA_CHROME=/path/to/chrome node test/store-shots.cjs
 ```
+
+The renderer intercepts all requests locally and never opens your personal Chrome profile. Output and provenance are under `store/v1.6/`.
 
 **Project layout**
 
 ```
-manifest.json      MV3 manifest
-content.js         panel UI + queue/automation logic (pure helpers are unit-tested)
-panel.css          two-theme styling driven by CSS variables
+manifest.json      Manifest V3 and content-script site access
+content.js         panel, prompt queue and saved chains
+panel.css          panel styling
+busy-lock.js       shared queue/image job coordination
+images-tab.js      Images tab entry points
+library.js         image picker, paging and download history
+thread.js          current-conversation original-image resolution
+grabber.js         image fetching, ZIP parts and failure reporting
+zip-lib.js         ZIP encoding
 icon*.png          extension icons
-test/              unit tests for the DOM-free helpers
-tools/harness.html screenshot / render harness
+test/              regression tests, browser fixtures and release audit
+store/v1.6/        synthetic store screenshots and provenance
 ```
 
 ## Contributing / Star
