@@ -76,6 +76,7 @@
   let queue = []; // string[] — reusable prompt list
   let chains = []; // [{ id, name, prompts }]
   let runState = "idle"; // "idle" | "running" | "paused"
+  let starting = false; // reserves Start while storage or the variables dialog awaits
   let cancel = false;
   let sentCount = 0;
   let completedCount = 0;
@@ -512,6 +513,8 @@
         runState = "paused";
         setStatus("Usage limit detected — paused.", false);
         renderControls();
+        // Limit pauses may last hours; release only the queue's reservation.
+        if (window.cpsBusy && window.cpsBusy.owner() === "queue") window.cpsBusy.release();
         await waitWhilePaused();
         if (cancel) return false;
       }
@@ -539,10 +542,46 @@
   // ==========================================================================
   // Runner
   // ==========================================================================
+  // The queue and the image grabber take turns: they both drive the page and
+  // saturate the network, and running them together scrambles the queue. The
+  // lock lives in busy-lock.js (shared across tabs via chrome.storage.local).
+  function busyElsewhere(held) {
+    return held && held.owner === "images"
+      ? "Images are downloading in another tab — wait for them to finish."
+      : "Another tab is already running a queue — wait for it to finish.";
+  }
+
   async function start() {
-    if (runState !== "idle") return;
+    if (runState !== "idle" || starting) return;
+    starting = true;
+    try {
+      await runQueue();
+    } finally {
+      starting = false;
+    }
+  }
+
+  async function runQueue() {
     const prompts = queue.slice();
     if (!prompts.length) return;
+
+    // Images guard, part 1: an early, friendly refusal before anything is asked
+    // of the user. Nothing may run here while an image job is going — the
+    // grabber scrolls the page and saturates the network, and this loop types
+    // into the composer. Same tab first, then the cross-tab lock.
+    if (typeof window !== "undefined" && window.ctigBusy) {
+      setStatus("Wait for the image download to finish first.", false);
+      return;
+    }
+    if (window.cpsBusy) {
+      // blocker(), not read(): a live lock that is already OURS (a queue paused
+      // by the usage-limit branch, say) must not refuse our own run.
+      const held = await window.cpsBusy.blocker();
+      if (held) {
+        setStatus(busyElsewhere(held), false);
+        return;
+      }
+    }
 
     // Resolve user {{variables}} up front. Reserved dynamic vars (like
     // {{last_reply}}) are excluded — they're filled from ChatGPT at send time.
@@ -554,6 +593,21 @@
       const filled = await askForVars(vars);
       if (!filled) return; // cancelled
       values = filled;
+    }
+
+    // Images guard, part 2: take the lock for real, now that the dialog is out
+    // of the way. Part 1 can be minutes stale if the user sat in the variables
+    // dialog, and this is the step that actually reserves the run.
+    if (window.ctigBusy) {
+      setStatus("Wait for the image download to finish first.", false);
+      return;
+    }
+    if (window.cpsBusy) {
+      const held = await window.cpsBusy.acquire("queue");
+      if (held) {
+        setStatus(busyElsewhere(held), false);
+        return;
+      }
     }
 
     lastReply = "";
@@ -622,6 +676,10 @@
         const action = await requestRecovery(
           `${result.reason} Prompt ${i + 1} was not marked as sent.`
         );
+        // requestRecovery parks runState at "paused" while the dialog is up.
+        // Retry/Skip both carry on sending, so say so — otherwise cpsIsRunning()
+        // would report a sending queue as paused for the rest of the run.
+        if (action !== "stop") runState = "running";
         if (action === "retry") continue;
         if (action === "skip") {
           runState = "running";
@@ -646,6 +704,9 @@
     const finished = completedCount >= totalCount && !cancel;
     runState = "idle";
     cancel = false;
+    // Release on the single exit path of the run loop — stop, cancel and a
+    // finished queue all end up here.
+    if (window.cpsBusy && window.cpsBusy.owner() === "queue") window.cpsBusy.release();
     hideRecovery();
     currentQueueIndex = -1;
     const doneText = skippedCount
@@ -656,12 +717,30 @@
     renderQueue();
   }
 
-  function pauseOrResume() {
+  // Pausing RELEASES the images lock; resuming takes it back. This is the fix
+  // for the deadlock: the image side tells the user to "pause the queue first",
+  // so a paused queue that kept holding the lock made its own instruction
+  // impossible to follow — and the usage-limit pause can last hours.
+  async function pauseOrResume() {
     if (awaitingRecovery) return;
     if (runState === "running") {
       runState = "paused";
       setStatus("Paused — finishes after the current reply.", false);
+      if (window.cpsBusy && window.cpsBusy.owner() === "queue") window.cpsBusy.release();
     } else if (runState === "paused") {
+      if (window.ctigBusy) {
+        setStatus("Images are downloading — resume when they finish.", false);
+        renderControls();
+        return;
+      }
+      if (window.cpsBusy) {
+        const held = await window.cpsBusy.acquire("queue");
+        if (held) {
+          setStatus(busyElsewhere(held), false);
+          renderControls();
+          return;
+        }
+      }
       runState = "running";
       setStatus("Resumed.", true);
     }
@@ -893,6 +972,7 @@
       <div class="cps-tabs">
         <button class="cps-tab cps-tab-active" data-tab="queue">Queue</button>
         <button class="cps-tab" data-tab="library">Library</button>
+        <button class="cps-tab" data-tab="images">Images</button>
       </div>
 
       <div class="cps-body">
@@ -990,13 +1070,17 @@
           </div>
         </div>
 
+        <!-- Images pane. Left empty on purpose: images-tab.js builds its
+             contents, so nothing here runs on the four non-ChatGPT sites. -->
+        <div class="cps-pane" data-pane="images" hidden></div>
+
         <div class="cps-privacy">
           <svg class="cps-lock" viewBox="0 0 24 24" width="11" height="11" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="5" y="11" width="14" height="10" rx="2"></rect>
             <path d="M8 11V7a4 4 0 0 1 8 0v4"></path>
           </svg>
-          Everything stays on your device. Your prompts are never sent to us or anyone else.
+          No developer servers or analytics. Image downloads use your ChatGPT session; chains and settings may use Chrome Sync.
         </div>
 
         <a class="cps-star" href="https://github.com/thegreatLUCY/prompt-stacker"
@@ -1735,8 +1819,21 @@
   // ==========================================================================
   // Init
   // ==========================================================================
+  // The Images tab's guard reads this. It deliberately means "actively sending",
+  // NOT "not idle": a paused queue is exactly the state the image side tells the
+  // user to create, so it must not report itself as busy.
+  window.cpsIsRunning = () => runState === "running";
+
   // Global shortcuts. Ctrl/⌘+Shift+… is used to avoid clashing with ChatGPT.
   function onKey(e) {
+    // The image picker owns the keyboard while it is open (its own handler runs
+    // in the capture phase). The panel is hidden behind it, so every shortcut
+    // here would be acting on something the user cannot see.
+    if (typeof window.ctigIsOpen === "function") {
+      try {
+        if (window.ctigIsOpen()) return;
+      } catch (_) {}
+    }
     if (!(e.ctrlKey || e.metaKey) || !e.shiftKey) return;
     const k = e.key.toLowerCase();
     if (k === "s") {
