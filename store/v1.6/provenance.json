@@ -1,0 +1,40 @@
+{
+  "screenshots": [
+    {
+      "file": "01-queue.png",
+      "width": 1280,
+      "height": 800,
+      "source": "actual extension UI, synthetic fixture; no personal profile"
+    },
+    {
+      "file": "02-chains.png",
+      "width": 1280,
+      "height": 800,
+      "source": "actual extension UI, synthetic fixture; no personal profile"
+    },
+    {
+      "file": "03-images.png",
+      "width": 1280,
+      "height": 800,
+      "source": "actual extension UI, synthetic fixture; no personal profile"
+    },
+    {
+      "file": "04-picker.png",
+      "width": 1280,
+      "height": 800,
+      "source": "actual extension UI, synthetic fixture; no personal profile"
+    },
+    {
+      "file": "05-select-new.png",
+      "width": 1280,
+      "height": 800,
+      "source": "actual extension UI, synthetic fixture; no personal profile"
+    }
+  ],
+  "artwork": "Original geometric SVG fixtures authored in this script; no downloaded artwork or real account data.",
+  "network": "All requests intercepted locally; zero external destinations.",
+  "promo": {
+    "width": 440,
+    "height": 280
+  }
+}

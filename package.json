@@ -1,9 +1,9 @@
 {
   "name": "prompt-stacker",
-  "version": "1.5.1",
-  "description": "Chrome extension that queues prompts for ChatGPT, Claude, Gemini, and DeepSeek and sends the next one when the current reply finishes.",
+  "version": "1.6.0",
+  "description": "Chrome extension that queues prompts for ChatGPT, Claude, Gemini, and DeepSeek, sends the next one when the current reply finishes, and saves ChatGPT images as a ZIP.",
   "scripts": {
-    "test": "node test/parse.test.cjs && node test/position.test.cjs"
+    "test": "node test/parse.test.cjs && node test/position.test.cjs && node test/merge.test.cjs && node --test test/image-safety.test.cjs test/thread-assets.test.cjs && node test/verify-current-thread.cjs"
   },
   "license": "MIT",
   "private": true

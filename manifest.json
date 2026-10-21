@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Prompt Stacker — ChatGPT, Claude, Gemini & more",
-  "version": "1.5.1",
-  "description": "Queue prompts and auto-send the next when the AI finishes replying. Works on ChatGPT, Claude, Gemini & DeepSeek.",
+  "version": "1.6.0",
+  "description": "Queue prompts and auto-send the next when the AI replies. Save ChatGPT images as a ZIP. ChatGPT, Claude, Gemini & DeepSeek.",
   "permissions": ["storage"],
   "icons": {
     "16": "icon16.png",
@@ -18,8 +18,16 @@
         "https://gemini.google.com/*",
         "https://chat.deepseek.com/*"
       ],
-      "js": ["content.js"],
+      "js": ["busy-lock.js", "content.js", "images-tab.js"],
       "css": ["panel.css"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
+      ],
+      "js": ["busy-lock.js", "zip-lib.js", "grabber.js", "library.js", "thread.js"],
       "run_at": "document_idle"
     }
   ],

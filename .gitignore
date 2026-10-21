@@ -1,1 +1,28 @@
+# Build output — never publish
 dist.zip
+
+# macOS
+.DS_Store
+
+# Personal / non-shipping material — must never reach the public repo
+marketing-kit.md
+
+# Local planning and backups for the Image Grabber merge (v1.6.0)
+# These are working documents, not part of the extension.
+backups/
+MERGE-PLAN-v1.6.md
+AUDIT-v1.6.md
+DESIGN-v1.6.md
+QA-CHECKLIST-v1.6.md
+CHANGES-v1.6.md
+CODEX-HANDOFF.md
+
+# Agent/tooling scratch, not part of the extension
+.agents/
+skills-lock.json
+
+# Local release audit output; never publish account-specific verification data.
+release-local/
+
+# Account-specific QA evidence stays in the private development checkout.
+verification/

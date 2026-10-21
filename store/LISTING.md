@@ -1,111 +1,72 @@
-# Chrome Web Store — listing copy & submission guide
+# Chrome Web Store listing — 1.6.0 draft
 
-Everything below is copy-paste ready. Fields map 1:1 to the Developer Console.
+Do not submit until the release checks pass. The older screenshot claiming
+"No network calls" is obsolete and must not be reused for this version.
 
----
+## Short description
 
-## 1. Store listing tab
+Queue prompts and auto-send the next when the AI replies. Save ChatGPT images as a ZIP. ChatGPT, Claude, Gemini & DeepSeek.
 
-**Name** (≤45 chars)
-```
-Prompt Stacker — Queue prompts for AI
-```
+## Detailed description
 
-**Summary / short description** (≤132 chars)
-```
-Queue a stack of prompts for ChatGPT, Claude & Gemini — each one sends itself when the AI finishes the previous reply.
-```
+Queue your prompts, reuse your workflows, and save your ChatGPT images.
 
-**Category:** Productivity
-**Language:** English
+Prompt Stacker adds a compact panel to ChatGPT, Claude, Gemini and DeepSeek.
+Add a sequence of prompts, then start the queue. Each prompt sends when the
+previous reply finishes. Pause, resume, stop, set a delay, or repeat a sequence.
 
-**Detailed description** (paste as-is)
-```
-Prompt Stacker lets you line up a whole stack of prompts and walk away. Each
-prompt sends itself the moment the AI finishes the previous reply — no more
-sitting there waiting to paste the next one.
+- Save reusable prompt chains in the Library tab.
+- Use {{topic}} variables and {{last_reply}} to build connected workflows.
+- Reorder and edit queued prompts, with Undo for removals and clearing.
+- Retry or skip a failed send instead of silently advancing.
+- Collapse the panel and use keyboard shortcuts.
+- Export and restore your prompt workflows.
 
-It only does what you'd do by hand: type into the box and click Send when the
-reply is done. No API keys, no accounts, no background automation.
+NEW: CHATGPT IMAGES
 
-━━ WHAT IT DOES ━━
-• Prompt queue — stack as many prompts as you like; the next sends automatically
-  when the current reply finishes.
-• Confirms each send, retries once when safe, and pauses with Retry / Skip
-  controls instead of silently advancing after a failure.
-• Works on ChatGPT, Claude, Gemini and DeepSeek — one extension,
-  and it auto-detects which AI you're on.
-• Chain replies — use {{last_reply}} to feed the AI's previous answer straight
-  into the next prompt.
-• Fill-in blanks — write {{topic}} and fill it in once when you press Start.
-• Delay, pause, resume, stop — full control mid-run.
-• Reorder and edit queued prompts, with Undo for removals and clearing; save
-  sequences you reuse as one-click chains.
-• Repeat the whole queue N times to generate variations.
-• Auto-continue truncated replies; optional auto-pause on usage limits.
-• Follows each site's light / dark mode automatically.
-• Collapses to a tidy pill with a live queue count.
-• Keyboard shortcuts and one-file backup / restore.
+- Browse generated images in a full-screen picker.
+- Select images, preview them, and download a ZIP with an image index.
+- Track saved images and select new images since your previous download.
+- Grab generated images from the current conversation.
+- Preserve the image bytes returned by the server without re-encoding.
+- Split large downloads into multiple ZIP parts.
 
-━━ PRIVACY ━━
-Everything stays in your browser. Prompt Stacker makes zero network requests and
-sends none of your data anywhere. It requests a single permission — storage — to
-remember your queue, chains and settings locally.
+Image features require a signed-in ChatGPT session. They are available on
+ChatGPT; prompt queue features also support Claude, Gemini and DeepSeek.
+The queue and image downloads take turns to avoid conflicting jobs.
 
-━━ OPEN SOURCE ━━
-The full source is public: https://github.com/thegreatLUCY/prompt-stacker
-```
+PRIVACY
 
----
+No developer servers, analytics or advertising trackers. Your queue is stored
+locally. Saved chains and settings may sync through your own Chrome account.
+Queue prompts are sent to the AI site you use. Image features request your
+images from ChatGPT using your existing session and save ZIPs on your device.
+ZIP indexes and exported backups may contain prompts; review them before sharing.
 
-## 2. Privacy practices tab  (this is what usually blocks approval — fill it exactly)
+Source and privacy policy:
+https://github.com/thegreatLUCY/prompt-stacker
+https://github.com/thegreatLUCY/prompt-stacker/blob/main/PRIVACY.md
 
-**Single purpose**
-```
-Prompt Stacker queues prompts the user types and sends the next one automatically
-when the AI chat page finishes its previous reply.
-```
+## Dashboard preparation
 
-**Permission justification — `storage`**
-```
-Used to save the user's prompt queue, saved chains, settings and interface preferences locally in the
-browser so they persist between sessions. No data is transmitted.
-```
+Single purpose: manage reusable AI prompt workflows and save their generated
+ChatGPT image outputs.
 
-**Host permission justification** (for the content-script matches)
-```
-The panel runs only on supported AI chat sites (ChatGPT, Claude, Gemini and
-DeepSeek) so it can place the user's prompt into that site's input box
-and click its send button. It reads only the interface state and latest response
-needed to run the queue, and never transmits that data anywhere.
-```
+Storage justification: save the queue, chains, settings, interface preferences
+and image-download history; chains/settings can use the user's Chrome Sync.
 
-**Remote code:** No, I am not using remote code.
+Site access justification: read interface state and replies and submit queued
+prompts on the supported AI sites; on ChatGPT, fetch the requested generated
+image metadata and original files using the user's existing signed-in session.
 
-**Data collection disclosures — check NOTHING.** For every category (personally
-identifiable info, activity, web history, etc.) leave it unchecked. Then check the
-three certification boxes:
-- ☑ I do not sell or transfer user data to third parties, outside of the approved use cases
-- ☑ I do not use or transfer user data for purposes unrelated to my item's single purpose
-- ☑ I do not use or transfer user data to determine creditworthiness or for lending purposes
+Remote code: none.
 
-**Privacy policy URL:** required because host permissions are requested. Use the
-hosted PRIVACY.md (see step 4) e.g.
-`https://github.com/thegreatLUCY/prompt-stacker/blob/main/PRIVACY.md`
+Review the dashboard's current data-handling questions against PRIVACY.md.
+Do not copy the old instruction to leave every category unchecked. Website
+content and authentication information are handled for the requested features,
+even though they are not sent to the developer. Chrome requires disclosure of
+local processing too:
+https://developer.chrome.com/docs/webstore/program-policies/user-data-faq
 
----
-
-## 3. Graphic assets (already generated in this folder)
-
-| Field | File | Size |
-| --- | --- | --- |
-| Store icon | ../icon128.png | 128×128 ✅ |
-| Screenshots (add all 5, in order) | 01-hero … 05-private.png | 1280×800 ✅ |
-| Small promo tile (optional) | promo-440x280.png | 440×280 ✅ |
-
----
-
-## 4. Distribution
-- **Visibility:** Public
-- **Regions:** All
-- **Pricing:** Free
+Use the five reviewed screenshots under `store/v1.6/` and the small promo image.
+They use synthetic prompts and artwork, not the owner's account.

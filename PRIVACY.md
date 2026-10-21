@@ -1,37 +1,55 @@
 # Privacy Policy — Prompt Stacker
 
-_Last updated: 2026-07-09_
+_Last updated: 2026-10-21 (version 1.6.0)_
 
-Prompt Stacker is a browser extension that queues prompts you type and sends the
-next one to a supported AI chat page when its previous reply finishes.
+Prompt Stacker queues prompts on supported AI chat sites and, when you request
+it on ChatGPT, lets you select and download generated images.
 
-## What we collect
+## Data used to provide these features
 
-**Nothing.** Prompt Stacker does not collect, transmit, sell, or share any data.
+The queue reads the chat interface and replies to detect completion and support
+features such as `{{last_reply}}`. Starting a queue sends your queued prompts to
+the AI service open in that tab, under that service's terms and privacy policy.
 
-- It makes **no network requests** of its own.
-- It has **no servers, no accounts, and no analytics**.
-- It uses **no remote code**.
+When you open the ChatGPT image library or grab a thread, the extension requests
+your session, image metadata, conversation assets and image files from ChatGPT
+and its image hosts using your existing signed-in session. A session access
+token is held in page memory for these requests; the extension does not save it
+in extension storage or send it to the developer. It does not require you to
+provide a password or API key.
 
-## What is stored, and where
+The developer receives no prompts, replies, images, credentials or usage reports.
+There are no developer-operated servers, analytics, advertising trackers, or
+remote executable code.
 
-Your prompt queue, saved prompt chains, settings, and interface preferences are stored **locally in your
-own browser** using the `storage` permission (Chrome's `chrome.storage` API), so
-they persist between sessions. Chains and settings may sync across your own
-signed-in Chrome browsers via Chrome's built-in sync — this stays within your
-Google account and is never sent to us.
+## Storage and downloaded files
 
-This data never leaves your device except through Chrome's own sync, which we do
-not control or have access to.
+- Your working queue and panel position are saved in Chrome's local extension
+  storage. Saved prompt chains and settings use Chrome Sync when available,
+  falling back to local storage. Chrome Sync is managed by your Google account;
+  the developer cannot access it.
+- Image download history, including saved image identifiers, the download
+  watermark, failure details and picker preferences, is saved locally in Chrome.
+  The loaded image list and session token are held in memory.
+- Images are saved to ZIP files you download. The included `index.tsv` can
+  contain image identifiers, dates, dimensions, prompts and failure details.
+  These archives and exported prompt backups may contain private content;
+  review them before sharing them.
 
-## Permissions
+Saved extension data persists until you remove it using the interface, clear
+the extension's storage, or uninstall the extension. Downloaded ZIPs and exported
+backups remain until you delete those files yourself. Closing or reloading a tab
+clears that tab's in-memory session token and loaded image list.
 
-- **storage** — to save your queue, chains, and settings locally.
-- **Host access** to supported AI chat sites (ChatGPT, Claude, Gemini and
-  DeepSeek) — solely to place your prompt into that site's input box and
-  click its send button. Page content is not read for any other purpose and is
-  never transmitted.
+## Permissions and destinations
+
+The `storage` permission saves the data described above. The content scripts run
+on ChatGPT, Claude, Gemini and DeepSeek to operate the queue. Image features run
+only on ChatGPT. Image requests use ChatGPT and its existing image hosts over
+HTTPS. Data is not sold, used for advertising, or sent to unrelated services.
 
 ## Contact
 
-Questions or issues: https://github.com/thegreatLUCY/prompt-stacker/issues
+Questions: https://github.com/thegreatLUCY/prompt-stacker/issues
+Please do not post private prompts, images, session tokens or download archives
+in a public issue.
